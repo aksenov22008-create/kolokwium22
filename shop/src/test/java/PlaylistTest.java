@@ -1,68 +1,138 @@
-import music.Playlist;
-import music.Song;
-import org.junit.jupiter.api.Test;
+import music.Playlist;                             // Клас Playlist
+import music.Song;                                 // Клас Song
+import org.junit.jupiter.api.Test;                 // Анотація тесту
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;  // Усі assert
 
 public class PlaylistTest {
-    @Test
+
+    @Test                                           // Простий тест
     public void testEmptyPlaylist(){
-        Playlist playlist = new Playlist();
-        assertTrue(playlist.isEmpty());
+
+        Playlist playlist = new Playlist();         // Створює порожній Playlist
+
+        assertTrue(playlist.isEmpty());             // Перевіряє що Playlist порожній
+
     }
+
     @Test
     public void testSingleElement(){
-        Playlist playlist = new Playlist();
-        playlist.add(new Song("Jan Kowalski","Test",183));
-        assertEquals(1,playlist.size());
+
+        Playlist playlist = new Playlist();         // Новий Playlist
+
+        playlist.add(new Song("Jan Kowalski","Test",183)); // Додає одну пісню
+
+        assertEquals(1,playlist.size());            // Повинен містити 1 елемент
+
     }
+
     @Test
     public void testSameElements(){
-        Playlist playlist = new Playlist();
-        Song song = new Song("Jan Kowalski","Test",183);
-        playlist.add(song);
-        assertTrue(playlist.contains(song));
+
+        Playlist playlist = new Playlist();         // Новий Playlist
+
+        Song song =
+                new Song("Jan Kowalski","Test",183); // Створює Song
+
+        playlist.add(song);                         // Додає її
+
+        assertTrue(playlist.contains(song));        // Перевіряє що саме цей об'єкт є у Playlist
+
     }
+
     @Test
     public void testEqualElement(){
-        Playlist playlist =new Playlist();
-        Song song = new Song("Jan Kowalski","Test",183);
-        Song samesong = new Song("Jan Kowalski","Test",183);
-        playlist.add(song);
-        assertTrue(playlist.contains(samesong));
-        assertEquals(playlist.get(0),samesong);
+
+        Playlist playlist = new Playlist();         // Новий Playlist
+
+        Song song =
+                new Song("Jan Kowalski","Test",183);
+
+        Song sameSong =
+                new Song("Jan Kowalski","Test",183); // Інший об'єкт але з такими ж даними
+
+        playlist.add(song);                         // Додає першу пісню
+
+        assertTrue(playlist.contains(sameSong));    // contains() використовує equals()
+
+        assertEquals(playlist.get(0),sameSong);     // Порівнює через equals()
+
     }
+
     @Test
     public void testAtSecond(){
-        Playlist playlist = new Playlist();
-        Song song1 = new Song("John Doe","Test1",100);
-        Song song2 = new Song("Mary Sue ","Test2",150);
-        Song song3 = new Song("Marty Sue","Test3",200);
-        playlist.add(song1);//0-100
-        playlist.add(song2);//100-250
-        playlist.add(song3);//250-450
-        assertEquals(song1 ,playlist.atSecond(0));
-        assertEquals(song1 ,playlist.atSecond(50));
-        assertEquals(song2 ,playlist.atSecond(200));
-        assertEquals(song3 ,playlist.atSecond(300));
+
+        Playlist playlist = new Playlist();         // Новий Playlist
+
+        Song song1 =
+                new Song("John Doe","Test1",100);
+
+        Song song2 =
+                new Song("Mary Sue","Test2",150);
+
+        Song song3 =
+                new Song("Marty Sue","Test3",200);
+
+        playlist.add(song1);                        // 0-99
+
+        playlist.add(song2);                        // 100-249
+
+        playlist.add(song3);                        // 250-449
+
+        assertEquals(song1,playlist.atSecond(0));   // Початок першої
+
+        assertEquals(song1,playlist.atSecond(50));  // Середина першої
+
+        assertEquals(song2,playlist.atSecond(200)); // Друга
+
+        assertEquals(song3,playlist.atSecond(300)); // Третя
+
     }
-    private IndexOutOfBoundsException doesThrowExeptionCommon(int seconds){
-        Playlist playlist = new Playlist();
-        Song song1 = new Song("John Doe","Test1",100);
-        Song song2 = new Song("Mary Sue ","Test2",150);
-        Song song3 = new Song("Marty Sue","Test3",200);
-        playlist.add(song1);//0-100
-        playlist.add(song2);//100-250
-        playlist.add(song3);//250-450
-        return assertThrows(IndexOutOfBoundsException.class, ()-> playlist.atSecond(seconds));
+
+    private IndexOutOfBoundsException doesThrowExceptionCommon(int seconds){
+
+        Playlist playlist = new Playlist();         // Створює Playlist
+
+        Song song1 =
+                new Song("John Doe","Test1",100);
+
+        Song song2 =
+                new Song("Mary Sue","Test2",150);
+
+        Song song3 =
+                new Song("Marty Sue","Test3",200);
+
+        playlist.add(song1);
+
+        playlist.add(song2);
+
+        playlist.add(song3);
+
+        return assertThrows(                        // Очікує IndexOutOfBoundsException
+                IndexOutOfBoundsException.class,
+                () -> playlist.atSecond(seconds)    // Викликає метод
+        );
+
     }
+
     @Test
     public void TestDoesThrowException(){
-        assertEquals("Zbyt duzy czas",doesThrowExeptionCommon(1500).getMessage());
+
+        assertEquals(
+                "Zbyt duzy czas",                   // Очікуване повідомлення
+                doesThrowExceptionCommon(1500).getMessage() // Текст Exception
+        );
+
     }
+
     @Test
-    public void TestDoesThrowNegaiveException(){
-        assertEquals("Ujemny czas",doesThrowExeptionCommon(-1000).getMessage());
+    public void TestDoesThrowNegativeException(){
+
+        assertEquals(
+                "Ujemny czas",
+                doesThrowExceptionCommon(-1000).getMessage()
+        );
+
     }
 
 }
