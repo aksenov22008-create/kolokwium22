@@ -1,0 +1,396 @@
+================================================================================
+  ТОТАЛЬНЫЙ МОНОЛИТ ПРОЕКТА "SITE": ВСЕ ВАРИАНТЫ КОДА + УЛЬТРА-РАЗБОР JDBC 
+И BCRYPT
+================================================================================
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 1: КОНФИГУРАЦИЯ ПРОЕКТА И ДЕПЕНДЕНСИ (pom.xml)
+--------------------------------------------------------------------------------
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.example</groupId>
+    <artifactId>site</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.45.1.0</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.mindrot</groupId>
+            <artifactId>jbcrypt</artifactId>
+            <version>0.4</version>
+        </dependency>
+    </dependencies>
+</project>
+
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 2: УПРАВЛЕНИЕ ПОДКЛЮЧЕНИЕМ (ПАКЕТ database)
+--------------------------------------------------------------------------------
+package org.example.database;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
+public class DatabaseConnection {
+    private Connection connection;
+
+    // Геттер (аксор) для передачи объекта коннекта в другие классы
+    public Connection getConnection() {
+        return connection;
+    }
+
+    // Метод открывает физическое соединение с базой по переданному пути
+    public void connect(String dbPath) {
+        try {
+            String url = "jdbc:sqlite:" + dbPath;
+            this.connection = DriverManager.getConnection(url);
+            System.out.println("[DB] Подключено к файлу: " + dbPath);
+        } catch (SQLException e) {
+            System.out.println("[DB ERROR] Ошибка подключения: " + 
+e.getMessage());
+        }
+    }
+
+    // Метод корректно закрывает соединение, освобождая ресурсы ОС
+    public void disconnect() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("[DB] Соединение с базой закрыто.");
+            }
+        } catch (SQLException e) {
+            System.out.println("[DB ERROR] Ошибка закрытия: " + 
+e.getMessage());
+        }
+    }
+}
+
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 3: МОДУЛЬ АВТОРИЗАЦИИ И BCRYPT (ПАКЕТ auth)
+--------------------------------------------------------------------------------
+package org.example.auth;
+
+import org.mindrot.jbcrypt.BCrypt;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class AuthManager {
+    private final Connection connection;
+
+    // Конструктор получает живой объект Connection из класса 
+DatabaseConnection
+    public AuthManager(Connection connection) {
+        this.connection = connection;
+    }
+
+    // МЕТОД РЕГИСТРАЦИИ (Вставка данных с хэшированием BCrypt)
+    public boolean register(String username, String password) {
+        String sql = "INSERT INTO accounts (username, password) VALUES (?, 
+?);";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            // Генерируем уникальную соль и превращаем пароль в хэш-кашу
+            String hashedPassword = BCrypt.hashpw(password, 
+BCrypt.gensalt());
+            
+            pstmt.setString(1, username.trim());
+            pstmt.setString(2, hashedPassword); // Пишем в БД 
+зашифрованную строку
+            
+            int rows = pstmt.executeUpdate();
+            return rows > 0; // true, если строка успешно вставилась
+        } catch (SQLException e) {
+            System.out.println("[AUTH ERROR] Регистрация провалена: " + 
+e.getMessage());
+            return false;
+        }
+    }
+
+    // МЕТОД ЛОГИНА (Безопасная проверка пароля по хэшу)
+    public boolean login(String username, String password) {
+        // Ищем строго по username, пароль в SELECT совать нельзя (в базе 
+лежит хэш!)
+        String sql = "SELECT password FROM accounts WHERE username = ?;";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, username.trim());
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    String storedHash = rs.getString("password"); // 
+Достали хэш из БД
+                    
+                    // BCrypt сам берет соль из хэша, шифрует введенный 
+пароль и сравнивает
+                    return BCrypt.checkpw(password, storedHash); 
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[AUTH ERROR] Ошибка при логине: " + 
+e.getMessage());
+        }
+        return false;
+    }
+}
+
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 4: КЛАСС MAIN ДЛЯ ЗАДАНИЯ №1 (РАБОТА С ТАБЛИЦЕЙ USERS)
+--------------------------------------------------------------------------------
+package org.example;
+
+import org.example.database.DatabaseConnection;
+import java.io.File;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class Main {
+    public static void main(String[] args) {
+        String dbFileName = "mydb.db";
+
+        // Проверка и жесткий снос старого файла базы, чтобы тесты шли на 
+чистой БД
+        File dbFile = new File(dbFileName);
+        if (dbFile.exists()) {
+            dbFile.delete();
+            System.out.println("[SYSTEM] Старая БД снесена.");
+        }
+
+        DatabaseConnection db = new DatabaseConnection();
+        db.connect(dbFileName);
+        Connection conn = db.getConnection();
+
+        if (conn != null) {
+            try (Statement statement = conn.createStatement()) {
+                
+                // 1. Создание таблицы (Используем общий .execute())
+                statement.execute("CREATE TABLE users (id INTEGER PRIMARY 
+KEY AUTOINCREMENT, name TEXT);");
+                System.out.println("[SQL] Таблица 'users' создана.");
+
+                // 2. Запись данных (Используем .executeUpdate(), 
+возвращает int)
+                int rowsInserted = statement.executeUpdate("INSERT INTO 
+users (name) VALUES ('Andrei'), ('Pavel');");
+                System.out.println("[SQL] Вставлено строк: " + 
+rowsInserted);
+
+                // 3. Выборка/Отчет данных (Используем .executeQuery(), 
+возвращает ResultSet)
+                try (ResultSet resultSet = statement.executeQuery("SELECT 
+* FROM users;")) {
+                    System.out.println("\n=== ДАННЫЕ ТАБЛИЦЫ USERS ===");
+                    while (resultSet.next()) {
+                        System.out.println("ID: " + resultSet.getInt("id") 
++ " | Имя: " + resultSet.getString("name"));
+                    }
+                    System.out.println("============================\n");
+                }
+
+            } catch (SQLException e) {
+                System.out.println("[SQL ERROR] " + e.getMessage());
+            } finally {
+                db.disconnect(); // Намертво закрываем коннект в конце
+            }
+        }
+    }
+}
+
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 5: КЛАСС MAIN ДЛЯ ЗАДАНИЯ №2 (РАБОТА С АВТОРИЗАЦИЕЙ И BCRYPT)
+--------------------------------------------------------------------------------
+package org.example;
+
+import org.example.database.DatabaseConnection;
+import org.example.auth.AuthManager;
+import java.io.File;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.sql.SQLException;
+
+public class MainAuth {
+    public static void main(String[] args) {
+        String dbFileName = "site.db";
+
+        // Снос старого файла для обеспечения чистоты и уникальности 
+тестов
+        File dbFile = new File(dbFileName);
+        if (dbFile.exists()) {
+            dbFile.delete();
+            System.out.println("[SYSTEM] Старая база site.db успешно 
+удалена.");
+        }
+
+        DatabaseConnection dbConnection = new DatabaseConnection();
+        dbConnection.connect(dbFileName);
+        Connection conn = dbConnection.getConnection();
+
+        if (conn != null) {
+            try (Statement stmt = conn.createStatement()) {
+                
+                // Создаем таблицу accounts с ограничением UNIQUE на 
+username
+                stmt.execute("CREATE TABLE accounts (" +
+                             "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                             "username TEXT NOT NULL UNIQUE, " +
+                             "password TEXT NOT NULL);");
+                System.out.println("[SYSTEM] Таблица 'accounts' готова.");
+
+                AuthManager auth = new AuthManager(conn);
+
+                // Тестируем регистрацию пользователей
+                System.out.println("\n--- ТЕСТ РЕГИСТРАЦИИ ---");
+                System.out.println("Регистрация 'andrei': " + 
+auth.register("andrei", "mySecretPass123"));
+                System.out.println("Регистрация 'pavel': " + 
+auth.register("pavel", "javaKing"));
+                System.out.println("Повторный ник 'andrei': " + 
+auth.register("andrei", "otherPass")); // Должно быть false (UNIQUE)
+
+                // Тестируем аутентификацию (проверку логина/пароля)
+                System.out.println("\n--- ТЕСТ АУТЕНТИФИКАЦИИ ---");
+                System.out.println("Вход 'andrei' (верный пароль): " + 
+auth.login("andrei", "mySecretPass123")); // true
+                System.out.println("Вход 'andrei' (неверный пароль): " + 
+auth.login("andrei", "wrong_pass"));    // false
+                System.out.println("Вход несуществующего 'ivan': " + 
+auth.login("ivan", "any"));               // false
+
+            } catch (SQLException e) {
+                System.out.println("[CRITICAL ERROR] " + e.getMessage());
+            } finally {
+                dbConnection.disconnect();
+            }
+        }
+    }
+}
+
+
+================================================================================
+ЧАСТЬ 6: ГЛУБОКИЙ ТЕХНИЧЕСКИЙ РАЗБОР ДЛЯ ДОПРОСА НА КОЛЛОКВИУМЕ
+================================================================================
+
+1. РАЗНИЦА МЕЖДУ МЕТОДАМИ EXECUTE (ГЛАВНЫЙ ВОПРОС ПРОФЕССОРА)
+--------------------------------------------------------------------------------
+Объект java.sql.Statement имеет три принципиально разных метода. Путать их 
+нельзя:
+
+* statement.execute(String sql) -> Возвращает boolean.
+  Это универсальный метод. Нужен, когда тип запроса заранее неизвестен, 
+либо для 
+  DDL команд структуры (CREATE TABLE, DROP TABLE). 
+  Если запрос вернул данные (SELECT), метод выдаст true. Если запрос 
+просто 
+  модифицировал базу (CREATE, INSERT) — вернет false.
+
+* statement.executeUpdate(String sql) -> Возвращает int.
+  [!!! ЗАПОМНИ !!!] Методов `executeInsert` или `executeDelete` в Java 
+НЕТ! 
+  Все операции записи, обновления и удаления данных (INSERT, UPDATE, 
+DELETE) 
+  вызываются СТРОГО через `executeUpdate`. 
+  Возвращаемое интовое число — это количество строк в базе данных, которые 
+изменились. 
+  Если ты добавил 2 юзеров — вернет 2. При создании таблицы (CREATE) 
+вернет 0.
+
+* statement.executeQuery(String sql) -> Возвращает ResultSet.
+  Используется СТРОГО для чтения данных через команду SELECT. Если 
+засунуть туда 
+  INSERT, программа упадет с критической ошибкой SQLException. Возвращает 
+объект-таблицу 
+  ResultSet, которую мы перебираем через `.next()`.
+
+2. ЗАЧЕМ И КАК СНОСИТСЯ СТАРАЯ БАЗА ПЕРЕД СТАРТОМ?
+--------------------------------------------------------------------------------
+* Код: `File dbFile = new File("mydb.db"); if (dbFile.exists()) { 
+dbFile.delete(); }`
+* Зачем это нужно: SQLite — это файловая база данных. Если запускать тесты 
+по 
+  несколько раз, старые записи будут накапливаться. 
+  При повторном добавлении пользователя с одинаковым именем колонка UNIQUE 
+(уникальный 
+  логин) вызовет ошибку падения, а счетчик ID улетит далеко вперед. 
+Физическое удаление 
+  файла с диска перед подключением гарантирует стерильность тестов при 
+каждом запуске.
+
+3. ВСЁ ПРО BCRYPT: СТРУКТУРА, СОЛЬ И АЛГОРИТМ ПРОВЕРКИ
+--------------------------------------------------------------------------------
+
+* Почему нельзя хранить пароли просто так?
+  Если злоумышленник получит доступ к файлу `site.db`, он увидит все 
+пароли. 
+  Поэтому пароли хэшируются. Хэш — это необратимая математическая функция. 
+Из строки 
+  "password" можно получить хэш, но из хэша восстановить "password" 
+невозможно.
+
+* Зачем нужна Соль (Salt)? 
+  `BCrypt.gensalt()` генерирует случайную текстовую строку (соль), которая 
+примешивается 
+  к паролю перед кодированием. Без соли, если два пользователя установят 
+одинаковый 
+  пароль "123456", их хэши в базе данных будут абсолютно идентичными 
+(хакер легко 
+  поймет это). С солью хэши у всех пользователей гарантированно будут 
+разными.
+
+* Как работает проверка `BCrypt.checkpw(password, storedHash)`?
+  Так как хэш невозможно расшифровать обратно, алгоритм делает хитро: он 
+берет чистый 
+  пароль, который человек ввел в форму входа, вытаскивает из старого хэша 
+(который 
+  мы достали из БД) соль, шифрует введенный пароль с этой солью заново и 
+сравнивает 
+  два хэша между собой. Если они совпали — пароль верный.
+
+* Почему меняется логика SELECT-запроса при работе с BCrypt?
+  Обычный запрос авторизации выглядит так: `SELECT * FROM users WHERE 
+login=? AND password=?`.
+  С BCrypt так написать НЕЛЬЗЯ, потому что мы не знаем, какой хэш 
+получится. 
+  Правильный алгоритм: мы пишем SQL-запрос только по логину: `SELECT 
+password FROM accounts WHERE username = ?;`. 
+  Забираем хэш из базы в Java, и уже средствами Java-кода через метод 
+`BCrypt.checkpw` 
+  проверяем валидность пароля.
+
+4. СЕКРЕТ PREPAREDSTATEMENT (ЗАЩИТА ОТ SQL INJECTION)
+--------------------------------------------------------------------------------
+* В классе `AuthManager` мы пишем знаки вопросов: `VALUES (?, ?)`. 
+  Это заставляет Java использовать **PreparedStatement**. 
+  Движок базы данных сначала компилирует шаблон SQL-запроса, и только 
+потом подставляет 
+  туда строки через `.setString(1, ...)`. 
+  Это полностью блокирует хакерские атаки (SQL-инъекции), когда взломщик 
+пытается 
+  вместо имени передать кусок вредоносного SQL-кода. База данных всегда 
+воспримет 
+  ввод пользователя как обычный безопасный текст. Индексация вопросов 
+начинается с 1.
+================================================================================
+

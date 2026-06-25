@@ -1,0 +1,172 @@
+================================================================================
+ИНСТРУКЦИЯ 1: КАК СОЗДАТЬ И ВЫВЕСТИ ОКНО (БАЗА НА SWING ИЗ ТВОИХ ПЕРВЫХ 
+ФОТО)
+================================================================================
+
+ПОШАГОВЫЙ АЛГОРИТМ:
+1. Создать класс окна и унаследовать его от встроенного каркаса JFrame.
+2. В конструкторе задать заголовок, запретить растягивать окно 
+(setResizable(false)) и настроить программу так, чтобы она полностью 
+закрывалась при нажатии на крестик.
+3. Создать внутри конструктора объект своего игрового холста-панели и 
+добавить его в окно методом add().
+4. Вызвать метод pack(), чтобы окно само сжалось под размеры холста, и 
+отцентрировать его на экране через setLocationRelativeTo(null).
+5. Сделать окно видимым командой setVisible(true).
+
+КОД:
+package com.example;
+
+import javax.swing.JFrame;
+import javax.swing.WindowConstants;
+
+public class MainWindow extends JFrame {
+
+    public MainWindow() {
+        setTitle("Paddle Game");
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setResizable(false);
+
+        GamePanel gamePanel = new GamePanel();
+        add(gamePanel);
+
+        pack();
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        new MainWindow();
+    }
+}
+
+================================================================================
+ИНСТРУКЦИЯ 2: КАК СОЗДАТЬ ХОЛСТ, ЗАДАТЬ РАЗМЕР И ЗАКРАСИТЬ ЕГО ФОН
+================================================================================
+
+ПОШАГОВЫЙ АЛГОРИТМ:
+1. Создать класс игрового поля и унаследовать его от встроенной панели 
+JPanel.
+2. В конструкторе задать точный размер холста в пикселях через 
+setPreferredSize().
+3. Переопределить встроенный системный метод отрисовки 
+paintComponent(Graphics g).
+4. Первой строчкой внутри метода вызвать super.paintComponent(g), чтобы 
+система подготовила и очистила память под новый кадр.
+5. Задать цвет кисти методом g.setColor(Color.BLACK) и залить весь экран 
+прямоугольником fillRect() от угла (0,0) до полной ширины и высоты холста.
+
+КОД:
+package com.example;
+
+import javax.swing.JPanel;
+import java.awt.Dimension;
+import java.awt.Color;
+import java.awt.Graphics;
+
+public class GamePanel extends JPanel {
+
+    public GamePanel() {
+        setPreferredSize(new Dimension(640, 800));
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, getWidth(), getHeight());
+    }
+}
+
+================================================================================
+ИНСТРУКЦИЯ 3: КАК СДЕЛАТЬ КООРДИНАТЫ АДАТИВНЫМИ (ОТ 0.0 ДО 1.0)
+================================================================================
+
+ПОШАГОВЫЙ АЛГОРИТМ:
+1. В базовом абстрактном классе создать статические (static) переменные 
+ширины и высоты экрана — это общая шпаргалка, куда холст один раз запишет 
+свои размеры в пикселях.
+2. Все позиции (x, y) и размеры объектов (width, height) хранить строго в 
+долях (процентах) от 0.0 до 1.0. Например, 0.5 — это ровно середина 
+экрана.
+3. В методе отрисовки объекта умножить внутреннюю долю на реальный размер 
+экрана из статической шпаргалки, переводя проценты в пиксели перед вызовом 
+g.fillRect().
+
+КОД:
+package com.example;
+
+import java.awt.Graphics;
+import java.awt.Color;
+
+public abstract class GraphicsItem {
+    protected static double canvasWidth = 640.0;
+    protected static double canvasHeight = 800.0;
+
+    protected double x = 0.4; 
+    protected double y = 0.9; 
+    protected double width = 0.2; 
+    protected double height = 0.03;
+
+    public void drawObject(Graphics g) {
+        int realX = (int) (this.x * canvasWidth);
+        int realY = (int) (this.y * canvasHeight);
+        int realWidth = (int) (this.width * canvasWidth);
+        int realHeight = (int) (this.height * canvasHeight);
+
+        g.setColor(Color.BLUE);
+        g.fillRect(realX, realY, realWidth, realHeight);
+    }
+}
+
+================================================================================
+ИНСТРУКЦИЯ 4: ОБРАБОТКА ДВИЖЕНИЯ МЫШИ, ОГРАНИЧИТЕЛИ И ПЕРЕРИСОВКА КАДРА
+================================================================================
+
+ПОШАГОВЫЙ АЛГОРИТМ:
+1. В конструкторе холста прикрепить слушатель движений мыши 
+addMouseMotionListener.
+2. В методе mouseMoved перехватить текущий пиксель курсора по горизонтали 
+через e.getX().
+3. Разделить этот пиксель мыши на полную статическую ширину экрана, 
+переведя его в проценты от 0.0 до 1.0.
+4. Вычесть из полученного значения половину ширины ракетки, чтобы курсор 
+мыши встал ровно по центру синей платформы, а не у её левого края.
+5. Написать условия (if): если координата стала меньше 0.0 — зафиксировать 
+её в 0.0 (левый край). Если координата стала больше, чем (1.0 - ширина 
+ракетки) — зафиксировать её на этой крайней отметке (правый край).
+6. Вызвать встроенный метод repaint(), чтобы принудительно стереть старый 
+кадр и заново вызвать paintComponent() для отрисовки платформы на новом 
+месте.
+
+КОД:
+// Этот кусок добавляется в конструктор GamePanel:
+this.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+    @Override
+    public void mouseMoved(java.awt.event.MouseEvent e) {
+        movePaddleWithMouse(e.getX());
+    }
+});
+
+// Этот метод пишется внутри класса GamePanel для обработки расчетов:
+public void movePaddleWithMouse(int mouseX) {
+    double canvasWidth = 640.0; 
+    double paddleWidth = 0.2;   
+
+    double mouseXPercent = mouseX / canvasWidth;
+    double targetX = mouseXPercent - (paddleWidth / 2.0);
+
+    if (targetX < 0.0) {
+        targetX = 0.0;
+    }
+    if (targetX > 1.0 - paddleWidth) {
+        targetX = 1.0 - paddleWidth;
+    }
+
+    // Сохраняем проверенную безопасную координату в поле нашей ракетки
+    // и принудительно обновляем холст на экране:
+    // this.paddle.setX(targetX);
+    repaint();
+}
+================================================================================

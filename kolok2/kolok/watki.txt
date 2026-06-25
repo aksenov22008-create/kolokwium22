@@ -1,0 +1,491 @@
+ПОТОКИ 
+СНАЧАЛО САМ КОД:
+package music;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
+
+public class ImageHandler {
+    private BufferedImage obraz;
+
+    public void read(String path) throws IOException {
+        File plik = new File(path);
+        this.obraz = ImageIO.read(plik);
+        System.out.println("Каптианка успешно загружена в память 
+компьютера!");
+    }
+
+    public void save(String path, String format) throws IOException {
+        File file = new File(path);
+        ImageIO.write(this.obraz, format, file);
+        System.out.println("Succed!");
+    }
+
+    //zadanie 2
+    public void zwiekszaJasnosc(int consta) {
+        if (this.obraz == null) {
+            System.out.println("Картианка не загружена");
+        }
+        int szerokosc = this.obraz.getWidth();
+        int wysokosc = this.obraz.getHeight();
+        for (int i = 0; i < szerokosc; i++) {
+            for (int j = 0; j < wysokosc; j++) {
+                int rgb = this.obraz.getRGB(i, j);
+                Color color = new Color(rgb);
+                int r = color.getRed();
+                int g = color.getGreen();
+                int b = color.getBlue();
+                int nowyR = Math.max(0, Math.min(255, r + consta));
+                int nowyG = Math.max(0, Math.min(255, g + consta));
+                int nowyB = Math.max(0, Math.min(255, b + consta));
+                Color newColor = new Color(nowyR, nowyG, nowyB);
+                this.obraz.setRGB(i, j, newColor.getRGB());
+            }
+        }
+        System.out.println("Ясность успешно изменена");
+    }
+
+    private class BrighteningWorker implements Runnable {
+        private int startX;
+        private int endX;
+        private int consta;
+
+        public BrighteningWorker(int start, int end, int c) {
+            this.startX = start;
+            this.endX = end;
+            this.consta = c;
+        }
+
+        @Override
+        public void run() {
+            int height = obraz.getHeight();
+            for (int i = startX; i < endX; i++) {
+                for (int j = 0; j < height; j++) {
+                    int rgb = obraz.getRGB(i, j);
+                    Color color = new Color(rgb);
+                    int r = color.getRed();
+                    int g = color.getGreen();
+                    int b = color.getBlue();
+                    int nowyR = Math.max(0, Math.min(255, r + consta));
+                    int nowyG = Math.max(0, Math.min(255, g + consta));
+                    int nowyB = Math.max(0, Math.min(255, b + consta));
+                    Color newColor = new Color(nowyR, nowyG, nowyB);
+                    obraz.setRGB(i, j, newColor.getRGB());
+                }
+            }
+        }
+    }
+
+    public void zwiekszaJasnoscWatki(int consta) throws 
+InterruptedException {
+        if (obraz == null) return;
+
+        int iloscWatkow = Runtime.getRuntime().availableProcessors();
+        System.out.println("Запуск на " + iloscWatkow + " потоках 
+процессора.");
+        int szerokosc = this.obraz.getWidth();
+        int wielkoscPaska = szerokosc / iloscWatkow;
+        Thread[] threads = new Thread[iloscWatkow];
+        for (int i = 0; i < iloscWatkow; i++) {
+            int startX = i * wielkoscPaska;
+            int endX;
+            if (i == iloscWatkow - 1) {
+                endX = szerokosc;
+            } else {
+                endX = startX + wielkoscPaska;
+            }
+
+            BrighteningWorker worker = new BrighteningWorker(startX, endX, 
+consta);
+            threads[i] = new Thread(worker);
+            threads[i].start();
+        }
+        for (Thread thread : threads) {
+            thread.join();
+        }
+        System.out.println("Многопоточная обработка ясности завершена!");
+    }
+    private class RowWorker implements Runnable{
+        private int y;
+        private int consta;
+        public RowWorker(int y, int constya){
+            this.y=y;
+            this.consta=constya;
+        }
+@Override
+        public void run() {
+            int width=obraz.getWidth();
+            for(int i=0;i<width;i++){
+                int rgb=obraz.getRGB(i, y);
+                Color color=new Color(rgb);
+                int r=color.getRed();
+                int g=color.getGreen();
+                int b=color.getBlue();
+                int newR=Math.max(0, Math.min(255, r+consta));
+                int newG=Math.max(0, Math.min(255, g+consta));
+                int newB=Math.max(0, Math.min(255, b+consta));
+                Color newColor=new Color(newR, newG, newB);
+                obraz.setRGB(i, y, newColor.getRGB());
+            }
+        }
+    }
+    public void ZwiekszaJasnoscPula(int consta) throws 
+InterruptedException {
+        if(obraz==null){
+            System.out.println("Nie ma obrazu");
+            return;
+        }
+        int height=obraz.getHeight();
+        int iloscWatkow=Runtime.getRuntime().availableProcessors();
+        ExecutorService executor= 
+Executors.newFixedThreadPool(iloscWatkow);
+        for(int i=0;i<height;i++){
+            RowWorker worker=new RowWorker(i, consta);
+            executor.submit(worker);
+        }
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.MINUTES);
+        System.out.println("Обработка пулом потоков завершена");
+    }
+    public class HistogramWorker implements Callable<int[]>{
+private int y;
+private String kanal;
+public HistogramWorker(int y, String kanal){
+    this.y=y;
+    this.kanal=kanal;
+}
+
+        @Override
+        public int[] call() throws Exception {
+           int[] lokalnyHistogram=new int[256];
+           int width=obraz.getWidth();
+           for(int i=0;i<width;i++){
+               int rgb=obraz.getRGB(i, y);
+               Color color=new Color(rgb);
+               int wartoscKanalu=0;
+               if (kanal.equalsIgnoreCase("R")){
+                   wartoscKanalu=color.getRed();
+               }
+               else if(kanal.equalsIgnoreCase("G")){
+                   wartoscKanalu=color.getGreen();
+               } else if (kanal.equalsIgnoreCase("B")){
+                   wartoscKanalu=color.getBlue();
+               }
+               lokalnyHistogram[wartoscKanalu]++;
+           }
+           return lokalnyHistogram;
+        }
+    }
+    public int [] obliczHistogramPula(String kanal) throws Exception{
+        if (this.obraz==null){
+            System.out.println("картинка не загружена");
+            return new int[256];
+        }
+        int ilosvcWantkow = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor= 
+Executors.newFixedThreadPool(ilosvcWantkow);
+        int height=obraz.getHeight();
+        List<Future<int[]>> rezultatyZnakow=new ArrayList<>();
+        for(int i=0;i<height;i++){
+            HistogramWorker zadanie=new HistogramWorker(i, kanal);
+            Future<int[]> prztszly=executor.submit(zadanie);
+            rezultatyZnakow.add(prztszly);
+        }
+        int [] glownyHistog=new int[256];
+        for(Future <int[]> future: rezultatyZnakow ){
+            int[] pasekHistogramu=future.get();
+            for (int i=0;i<256;i++){
+                glownyHistog[i]+=pasekHistogramu[i];
+            }
+        }
+        executor.shutdown();
+        return glownyHistog;
+    }
+    public BufferedImage rysujImageHistogramu(int[]hist){
+        int width=256;
+        int height=200;
+        BufferedImage wykres=new BufferedImage(width, height, 
+BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d=wykres.createGraphics();
+        g2d.setColor(Color.BLACK);
+        g2d.fillRect(0, 0, width, height);
+        int maxWart=0;
+        for(int i=0;i<256;i++){
+            if(hist[i]>maxWart) maxWart=hist[i];
+        }
+        if(maxWart==0)maxWart=1;
+        g2d.setColor(Color.WHITE);
+        for(int i=0;i<256;i++){
+            int wysokoscSlupka=(int)(((long)hist[i]*height)/maxWart);
+            int startY=height-wysokoscSlupka;
+            g2d.drawLine(i, startY, i, height);
+        }
+        g2d.dispose();
+        return wykres;
+
+    }
+}
+
+==============================================
+ДАЛЬШЕ ПРОЯСНЕНИЕ
+
+
+
+=====================================
+================================================================================
+  МЕГА-КОНСПЕКТ: ТОТАЛЬНЫЙ РАЗБОР КЛАССА IMAGEHANDLER (МНОГОПОТОЧНЫЙ RGB 
+GRAPHICS)
+================================================================================
+
+--------------------------------------------------------------------------------
+БАЗОВАЯ ТЕОРИЯ: КАК ДЛЯ ТУПЫХ — ЧТО ТАКОЕ ЦВЕТ И ПИКСЕЛЬ В КОМПЬЮТЕРЕ
+--------------------------------------------------------------------------------
+* Любая картинка состоит из сетки точек — ПИКСЕЛЕЙ.
+* Каждый пиксель состоит из ТРЕХ основных цветовых каналов: R (Red — 
+Красный), 
+  G (Green — Зеленый), B (Blue — Синий). Модель RGB.
+* [ОТТЕНКИ]: Каждый канал имеет ровно 256 оттенков: от 0 (цвета нет, 
+темнота) 
+  до 255 (максимальная яркость цвета).
+  -> Чистый черный цвет: R=0, G=0, B=0
+  -> Чистый белый цвет: R=255, G=255, B=255
+* [ЧТО ТАКОЕ INT RGB?]: В Java для экономии памяти цвета трех каналов 
+упаковывают 
+  в ОДНО обычное 32-битное число типа int. Первые 8 бит — прозрачность 
+(Alpha), 
+  потом 8 бит на Красный, 8 на Зеленый и 8 на Синий.
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 1: ПОЛЯ КЛАССА, ВВОД И ВЫВОД (МЕТОДЫ READ И SAVE)
+--------------------------------------------------------------------------------
+* private BufferedImage obraz;
+  -> Главное поле класса. BufferedImage — это встроенный класс Java, 
+который 
+     выделяет массив в оперативной памяти под хранение сетки пикселей 
+картинки.
+
+* public void read(String path) throws IOException
+  -> Метод «чтения». Принимает строку-путь к файлу на диске. Ничего не 
+возвращает (void).
+* File plik = new File(path);
+  -> Создает объект дескриптора файла в Java.
+* this.obraz = ImageIO.read(plik);
+  -> [!!! ВАЖНО !!!] Статический класс ImageIO декодирует сжатый файл 
+(PNG/JPG) 
+     и загружает его в память в наше поле obraz в виде сырой матрицы 
+пикселей.
+
+* public void save(String path, String format) throws IOException
+  -> Метод «сохранения» картинки из памяти обратно на жесткий диск.
+* ImageIO.write(this.obraz, format, file);
+  -> Берет матрицу пикселей из памяти, кодирует в нужный формат (например, 
+"png") 
+     и записывает в указанный файл.
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 2: ОДНОПОТОЧНОЕ ИЗМЕНЕНИЕ ЯРКОСТИ (zwiekszaJasnosc)
+--------------------------------------------------------------------------------
+* public void zwiekszaJasnosc(int consta)
+  -> Принимает число consta, на которое мы хотим изменить яркость 
+(например, +50 или -30).
+* int szerokosc = this.obraz.getWidth(); / int wysokosc = 
+this.obraz.getHeight();
+  -> Получает размеры картинки в пикселях (ширину и высоту) для циклов.
+* double for (int i = 0; i < szerokosc; i++) { for (int j = 0; j < 
+wysokosc; j++) { ... } }
+  -> [!!! ДВОЙНОЙ ЦИКЛ !!!] Попиксельный обход картинки. Внешний цикл идет 
+по 
+     столбцам (координата X), внутренний — по строкам (координата Y).
+* int rgb = this.obraz.getRGB(i, j);
+  -> Достает то самое упакованное 32-битное число int, содержащее цвета 
+пикселя (i, j).
+* Color color = new Color(rgb);
+  -> Обертка. Передаем число int в класс Color, чтобы он распаковал его на 
+каналы.
+* int r = color.getRed(); / int g = color.getGreen(); / int b = 
+color.getBlue();
+  -> Вытаскивает численные значения каналов (каждое от 0 до 255).
+* int nowyR = Math.max(0, Math.min(255, r + consta)); [!!! ЛЮБИМЫЙ ВОПРОС 
+ПРЕПОДА !!!]
+  -> [ЗАЩИТА ОТ ВЫХОДА ЗА ГРАНИЦЫ]: Зачем тут Math.max и Math.min? 
+     Если к яркости 250 прибавить consta=20, получится 270. Но 
+максимальное значение 
+     канала — 255! Если записать 270, Java сломает цвет пикселя. 
+Math.min(255, 270) 
+     обрежет значение до 255. А Math.max(0, ...) не даст цвету уйти в 
+минус, если consta отрицательная.
+* Color newColor = new Color(nowyR, nowyG, nowyB);
+  -> Собирает новый объект цвета из измененных каналов.
+* this.obraz.setRGB(i, j, newColor.getRGB());
+  -> Запаковывает цвет обратно в int и перезаписывает пиксель (i, j) в 
+картинке.
+--------------------------------------------------------------------------------
+ЧАСТЬ 3: МНОГОПОТОЧНОСТЬ ЧЕРЕЗ КЛАССИЧЕСКИЕ ПОТОКИ (THREADS)
+--------------------------------------------------------------------------------
+
+1. КЛАСС ВОРКЕРА: private class BrighteningWorker implements Runnable
+--------------------------------------------------------------------------------
+* implements Runnable -> Интерфейс, требующий реализовать метод public 
+void run(). 
+  Говорит Java, что этот класс содержит код, который можно запустить в 
+отдельном потоке.
+* private int startX; / private int endX;
+  -> Картинка пилится на ВЕРТИКАЛЬНЫЕ ПОЛОСЫ. Каждый воркер получает свой 
+кусок 
+     координат по ширине (от startX до endX) и обрабатывает только его.
+* @Override public void run() { ... }
+  -> Код, который выполняется параллельно. Внутри точно такой же двойной 
+цикл, 
+     но по оси X он идет не от 0 до ширины, а жестко от 
+своегоm.out.prinдоТОКИ 
+СН
+
+2. ЗАПУСКНОЙ МЕТОД: public void zwiekszaJasnoscWatki(int consta)
+--------------------------------------------------------------------------------
+* int iloscWatkow = Runtime.getRuntime().availableProcessors();
+  -> [ДИНАМИКА]: Запрашивает у операционной системы количество доступных 
+ядер (потоков) 
+     твоего процессора, чтобы загрузить комп на максимум.
+* int wielkoscPaska = szerokosc / iloscWatkow;
+  -> Считает ширину вертикальной полосы картинки для одного потока.
+* Thread[] threads = new Thread[iloscWatkow];
+  -> Массив для хранения объектов потоков, чтобы контролировать их 
+завершение.
+* if (i == iloscWatkow - 1) { endX = szerokosc; }
+  -> Проверка на "хвост". Если картинка не делится поровну на количество 
+ядер, 
+     последний поток забирает себе все оставшиеся пиксели до самого 
+правого края.
+* threads[i] = new Thread(worker); / threads[i].start();
+  -> new Thread создает физический поток в ОС, а .start() — запускает его 
+метод run() параллельно.
+* for (Thread thread : threads) { thread.join(); } [!!! ТОП-ВОПРОС НА 
+КОЛОКВИУМЕ !!!]
+  -> [ЗАЧЕМ ТУТ JOIN?]: Метод .join() заставляет главный поток программы 
+(main) 
+     ОСТАНОВИТЬСЯ и ждать, пока данный поток полностью завершит свою 
+работу. 
+     Если убрать циклы join, программа выведет надпись "Обработка 
+завершена" мгновенно, 
+     хотя потоки в фоне еще даже не успеют обработать первый пиксель.
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 4: МНОГОПОТОЧНОСТЬ ЧЕРЕЗ ПУЛ ПОТОКОВ (EXECUTORSERVICE)
+--------------------------------------------------------------------------------
+
+1. КЛАСС ВОРКЕРА ПО СТРОКАМ: private class RowWorker implements Runnable
+--------------------------------------------------------------------------------
+* В отличие от предыдущего метода, этот воркер обрабатывает не 
+вертикальный кусок, 
+  а ОДНУ конкретную ГОРИЗОНТАЛЬНУЮ СТРОКУ картинки с координатой y.
+
+2. МЕТОД ПУЛА: public void ZwiekszaJasnoscPula(int consta)
+--------------------------------------------------------------------------------
+* ExecutorService executor = Executors.newFixedThreadPool(iloscWatkow);
+  -> [ПУЛ ПОТОКОВ]: Вместо ручного создания new Thread под каждую задачу, 
+мы создаем 
+     Пул Потоков. Потоки создаются один раз (в количестве ядер процессора) 
+и спят.
+* for(int i=0; i<height; i++) { executor.submit(new RowWorker(i, consta)); 
+}
+  -> Мы нарезаем картинку на тысячи мелких задач (по одной задаче на 
+каждую строку `i`). 
+     Метод .submit() кидает задачу в очередь пула. Свободные потоки из 
+пула сами 
+     разбирают задачи из очереди и выполняют их. Это работает стабильнее и 
+быстрее.
+* executor.shutdown();
+  -> Команда пулу: "Новые задачи больше не принимать, после выполнения 
+текущих — закрыться".
+* executor.awaitTermination(10, TimeUnit.MINUTES);
+  -> Аналог метода join(), но для всего пула. Заставляет программу ждать 
+завершения 
+     всех задач из очереди пула (но не дольше 10 минут).
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 5: ВЫЧИСЛЕНИЕ ГИСТОГРАММЫ ЧЕРЕЗ INTERFACE CALLABLE И FUTURE
+--------------------------------------------------------------------------------
+* Что такое гистограмма? Это статистика. Массив из 256 чисел, где индекс — 
+это 
+  яркость (от 0 до 255), а значение — сколько пикселей на картинке имеют 
+такую яркость.
+
+1. ВОРКЕP С ВОЗВРАТОМ ДАННЫХ: public class HistogramWorker implements 
+Callable<int[]>
+--------------------------------------------------------------------------------
+* implements Callable<int[]> [!!! КРИТИЧЕСКАЯ РАЗНИЦА С RUNNABLE !!!]
+  -> Интерфейс Runnable выполняет код в фоне, но НЕ умеет возвращать 
+результат наружу. 
+  -> Интерфейс Callable<V> обязан реализовать метод public V call(). Он 
+умеет 
+     выполняться в фоне и ВОЗВРАЩАТЬ результат работы (в нашем случае — 
+массив `int[]`).
+* int[] lokalnyHistogram = new int[256];
+  -> Каждый поток считает количество пикселей разного цвета только для 
+СВОЕЙ строки y.
+* if (kanal.equalsIgnoreCase("R")) { wartoscKanalu = color.getRed(); } ...
+  -> Проверяет, по какому цветовому каналу нас попросили посчитать 
+статистику.
+* lokalnyHistogram[wartoscKanalu]++;
+  -> Инкрементирует счетчик конкретного оттенка. Метод возвращает этот 
+локальный массив.
+
+2. СБОР РЕЗУЛЬТАТОВ: public int[] obliczHistogramPula(String kanal)
+--------------------------------------------------------------------------------
+* List<Future<int[]>> rezultatyZnakow = new ArrayList<>();
+  -> [ЧТО ТАКОЕ FUTURE?]: Метод executor.submit(Callable) не может вернуть 
+массив сразу, 
+     ведь поток только начал считать в фоне. Поэтому он возвращает объект 
+Future («Обещание» или «Билет на получение данных в будущем»). Мы 
+складываем эти билеты в список.
+* int[] pasekHistogramu = future.get(); [!!! ЛЮБИМЫЙ ВОПРОС НА КОЛОКВИУМЕ 
+!!!]
+  -> Метод .get() у объекта Future — блокирующий. Он замирает и ждет, пока 
+фоновый 
+     поток досчитает строку и вернет массив. Как только вернул — код идет 
+дальше.
+* for (int i=0; i<256; i++) { glownyHistog[i] += pasekHistogramu[i]; }
+  -> [РЕДУКЦИЯ / СЛИЯНИЕ]: Мы берем локальный гистограммный массив от 
+одной строки 
+     и суммируем его данные в один большой glownyHistog, собирая общую 
+статистику по всей картинке.
+
+--------------------------------------------------------------------------------
+ЧАСТЬ 6: РИСОВАНИЕ ГРАФИКА ГИСТОГРАММЫ (РИСОВАНИЕ СНУЛЯ ЧЕРЕЗ GRAPHICS2D)
+--------------------------------------------------------------------------------
+* public BufferedImage rysujImageHistogramu(int[] hist)
+  -> Принимает итоговый массив статистики из 256 элементов. Возвращает 
+готовую картинку графика.
+* BufferedImage wykres = new BufferedImage(width, height, 
+BufferedImage.TYPE_INT_RGB);
+  -> Создает в памяти абсолютно пустой холст размером 256 на 200 пикселей.
+* Graphics2D g2d = wykres.createGraphics(); [!!! РАБОТА С КИСТЬЮ !!!]
+  -> Объект Graphics2D — это «виртуальная кисть/карандаш» для рисования на 
+нашем холсте wykres.
+* g2d.setColor(Color.BLACK); / g2d.fillRect(0, 0, width, height);
+  -> Окрашивает кисть в черный цвет и заливает им прямоугольник всего 
+холста (делает черный фон).
+* if(maxWart==0) maxWart=1;
+  -> Защита от деления на ноль, если картинка была полностью пустой.
+* int wysokoscSlupka = (int)(((long)hist[i] * height) / maxWart); [!!! 
+МАСШТАБИРОВАНИЕ !!!]
+  -> Формула, которая подгоняет высоту столбика под наши 200 пикселей 
+высоты холста, 
+     чтобы график не улетел за границы экрана.
+* int startY = height - wysokoscSlupka;
+  -> В компьютерной графике точка (0,0) находится в ЛЕВOМ ВЕРХНЕМ углу. 
+Чтобы график 
+     рос снизу вверх, мы вычитаем высоту столбика из общей высоты холста.
+* g2d.drawLine(i, startY, i, height);
+  -> Рисует белую вертикальную линию (столбик гистограммы) толщиной в 1 
+пиксель от startY до низа.
+* g2d.dispose();
+  -> Уничтожает объект кисти и освобождает ресурсы графической подсистемы. 
+Обязательный метод!
+================================================================================
