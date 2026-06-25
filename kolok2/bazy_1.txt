@@ -1,0 +1,200 @@
+LAB_1:
+////////////////////////////////////
+Main
+import database.DatabaseConnection;
+import auth.AccountManager;
+import auth.Account;
+
+public class Main {
+    public static void main(String[] args) {
+        // 1. Создаем и проверяем подключение к базе
+        DatabaseConnection db = new DatabaseConnection();
+        db.connect("users_base.db");
+
+        // 2. Создаем менеджер
+        AccountManager manager = new AccountManager(db);
+
+        // 3. Тестируем регистрацию и вывод в консоль (теперь внутри метода!)
+        System.out.println("--- Проверка работы программы ---");
+        manager.register("stud_2026", "mySecurePass");
+
+        boolean successLogin = manager.authenticate("stud_2026", "mySecurePass");
+        System.out.println("Вход с правильным паролем: " + successLogin);
+
+        // 4. Закрываем базу в самом конце метода
+        db.disconnect();
+    }
+}
+
+/////////////////////////
+database/DatabaseConnection
+package database; // Говорим Java, что этот файл лежит в папке database
+
+import java.sql.Connection;    // Книга заклинаний для соединения
+import java.sql.DriverManager; // Книга заклинаний для управления драйверами БД
+import java.sql.SQLException;  // Книга для обработки ошибок (если файл базы сломается)
+
+public class DatabaseConnection {
+
+    // Это секретная ячейка, где будет храниться наше открытое подключение.
+    // private означает, что никто снаружи не может залезть в эту переменную руками.
+    private Connection connection;
+
+    // Поскольку ячейка выше секретная (private), мы делаем "окошко" (геттер),
+    // чтобы другие классы могли ПОЛУЧИТЬ это соединение, но не могли его испортить.
+    public Connection getConnection() {
+        return connection;
+    }
+
+    // Метод для подключения. Ему на вход нужно дать путь к файлу (например "mybase.db")
+    public void connect(String dbPath) {
+        try {
+            // Для SQLite путь всегда должен начинаться со специальной приставки jdbc:sqlite:
+            String url = "jdbc:sqlite:" + dbPath;
+
+            //DriverManager пытается открыть файл по этому адресу и кладет его в нашу ячейку
+            this.connection = DriverManager.getConnection(url);
+
+            System.out.println("Ура! Мы успешно подключились к файлу: " + dbPath);
+        } catch (SQLException e) {
+            // Если что-то пойдет не так (например, нет прав на создание файла), Java покажет ошибку:
+            System.out.println("Ой, не удалось подключиться: " + e.getMessage());
+        }
+    }
+
+    // Метод для закрытия программы. Базу данных нужно обязательно закрывать, как флешку перед вытаскиванием!
+    public void disconnect() {
+        try {
+            // Если соединение существует и оно еще не закрыто — закрываем
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("Соединение успешно закрыто. Файл свободен.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Не удалось закрыть базу: " + e.getMessage());
+        }
+    }
+}
+///////////////////////////
+auth/Account
+package auth; // Файл лежит в папке auth
+
+// Эта строчка автоматически создает неизменяемый объект с id и username
+public record Account(int id, String username) {}
+//////////////////////////////////////////////////////
+auth/AccountManager
+package auth;
+
+import database.DatabaseConnection;
+// Импортируем библиотеку BCrypt, которую Maven скачал нам в самом начале
+import org.mindrot.jbcrypt.BCrypt;
+
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+public class AccountManager {
+    // Менеджеру нужно знать, к какой базе подключаться, поэтому храним ссылку на наше подключение
+    private final DatabaseConnection dbConnection;
+
+    // Конструктор: когда мы создаем AccountManager, мы передаем ему наше подключение
+    public AccountManager(DatabaseConnection dbConnection) {
+        this.dbConnection = dbConnection;
+        createTableIfNotExists(); // Как только менеджер создался, он сразу проверяет, есть ли таблица в базе
+    }
+
+    // Метод, который создает таблицу для пользователей, если её ещё нет в файле .db
+    private void createTableIfNotExists() {
+        // SQL-запрос: Создай таблицу users, если её нет.
+        // id увеличивается сам (AUTOINCREMENT), username должен быть уникальным (UNIQUE)
+        String sql = "CREATE TABLE IF NOT EXISTS users (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "username TEXT UNIQUE NOT NULL," +
+                "password TEXT NOT NULL);";
+
+        try (Statement stmt = dbConnection.getConnection().createStatement()) {
+            stmt.execute(sql); // Выполняем запрос в базу
+        } catch (SQLException e) {
+            System.out.println("Ошибка при создании таблицы: " + e.getMessage());
+        }
+    }
+
+    // 1. МЕТОД РЕГИСТРАЦИИ (register)
+    public void register(String username, String password) {
+        // Запрос со знаками вопроса (вместо реальных данных)
+        String sql = "INSERT INTO users(username, password) VALUES(?, ?)";
+
+        // Хешируем (шифруем) пароль с помощью BCrypt перед сохранением
+        String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+
+        try (PreparedStatement pstmt = dbConnection.getConnection().prepareStatement(sql)) {
+            // Подставляем вместо первого '?' — имя пользователя, вместо второго — зашифрованный пароль
+            pstmt.setString(1, username);
+            pstmt.setString(2, hashedPassword);
+            pstmt.executeUpdate(); // Отправляем данные в таблицу
+            System.out.println("Пользователь " + username + " успешно зарегистрирован!");
+        } catch (SQLException e) {
+            System.out.println("Не удалось зарегистрировать (возможно, логин уже занят): " + e.getMessage());
+        }
+    }
+
+    // 2. МЕТОД ПРОВЕРКИ ПАРОЛЯ (authenticate)
+    public boolean authenticate(String username, String password) {
+        String sql = "SELECT password FROM users WHERE username = ?";
+
+        try (PreparedStatement pstmt = dbConnection.getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery(); // ResultSet — это строка-результат из таблицы
+
+            if (rs.next()) { // Если пользователь с таким логином нашелся
+                String hashedPasswordFromDb = rs.getString("password"); // Достаем его хэш пароля
+
+                // Проверяем, совпадает ли введенный пароль с хэшем из базы
+                return BCrypt.checkpw(password, hashedPasswordFromDb);
+            }
+        } catch (SQLException e) {
+            System.out.println("Ошибка при проверке пароля: " + e.getMessage());
+        }
+        return false; // Если пользователя нет или пароль не подошел
+    }
+
+    // 3. МЕТОД ПОЛУЧЕНИЯ АККАУНТА ПО ИМЕНИ (getAccount)
+    public Account getAccount(String username) {
+        String sql = "SELECT id, username FROM users WHERE username = ?";
+
+        try (PreparedStatement pstmt = dbConnection.getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                // Если нашли, создаем наш компактный объект Account и возвращаем его
+                return new Account(rs.getInt("id"), rs.getString("username"));
+            }
+        } catch (SQLException e) {
+            System.out.println("Ошибка поиска по имени: " + e.getMessage());
+        }
+        return null; // Если пользователь не найден
+    }
+
+    // 3. ПЕРЕГРУЖЕННЫЙ МЕТОД: ПОЛУЧЕНИЕ АККАУНТА ПО ID (тоже getAccount)
+    // В Java методы могут называться одинаково, если у них разные входящие параметры (тут int вместо String)
+    public Account getAccount(int id) {
+        String sql = "SELECT id, username FROM users WHERE id = ?";
+
+        try (PreparedStatement pstmt = dbConnection.getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return new Account(rs.getInt("id"), rs.getString("username"));
+            }
+        } catch (SQLException e) {
+            System.out.println("Ошибка поиска по ID: " + e.getMessage());
+        }
+        return null;
+    }
+}
+
+
+

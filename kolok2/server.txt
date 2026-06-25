@@ -1,0 +1,235 @@
+Имя_Проекта
+ └── src
+      └── main
+           └── java
+                ├── chat (папка/пакет)
+                │    ├── ChatServer.java  <-- Класс СЕРВЕРА (Задания 1, 3, 4)
+                │    └── ChatClient.java  <-- Класс КЛИЕНТА (Задание 2, 3)
+
+🖥️ Часть 1. Пишем Сервер (ChatServer.java)
+
+Сервер — это центральный узел. Он запускается на определенном порту (например, 12345), "слушает" сеть и ждет клиентов. Для каждого подключившегося клиента сервер создает отдельный поток (ClientHandler), чтобы они не блокировали друг друга.
+
+Создай файл ChatServer.java в папке chat и добавь код с построчным объяснением:
+Java
+
+package chat;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class ChatServer {
+    private static final int PORT = 12345; // Порт, который будет слушать сервер
+
+    // Карта (Map) для хранения всех активных пользователей. Ключ — логин, значение — обработчик клиента.
+    // ConcurrentHashMap используется, так как множество потоков будут одновременно читать и писать сюда.
+    private static final Map<String, ClientHandler> activeUsers = new ConcurrentHashMap<>();
+
+    public static void main(String[] args) {
+        System.out.println("Сервер чата запущен и ожидает подключений...");
+        
+        // ServerSocket открывает порт на компьютере и ждет входящие сетевые запросы
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            while (true) {
+                // accept() блокирует поток и ждет, пока клиент не подключится. 
+                // Как только клиент подключился, возвращается объект Socket (канал связи)
+                Socket clientSocket = serverSocket.accept();
+                
+                // Для каждого нового клиента создаем отдельную задачу-поток и запускаем её
+                ClientHandler handler = new ClientHandler(clientSocket);
+                new Thread(handler).start();
+            }
+        } catch (IOException e) {
+            System.out.println("Ошибка сервера: " + e.getMessage());
+        }
+    }
+
+    // Метод для отправки сообщения ВСЕМ пользователям чата (Задание 1)
+    public static void broadcast(String message) {
+        for (ClientHandler handler : activeUsers.values()) {
+            handler.sendMessage(message);
+        }
+    }
+
+    // Метод для отправки приватного сообщения конкретному пользователю (Задание 4b)
+    public static void sendPrivateMessage(String sender, String recipient, String message) {
+        ClientHandler handler = activeUsers.get(recipient);
+        if (handler != null) {
+            // Если получатель в сети, отправляем ему сообщение в специальном формате
+            handler.sendMessage("[Личное от " + sender + "]: " + message);
+        } else {
+            // Если получателя нет, находим отправителя и пишем ему, что адресат недоступен
+            ClientHandler senderHandler = activeUsers.get(sender);
+            if (senderHandler != null) {
+                senderHandler.sendMessage("Система: Пользователь " + recipient + " не найден в сети.");
+            }
+        }
+    }
+
+    // Метод генерирует строку со списком всех пользователей онлайн (Задание 3b)
+    public static String getOnlineUsersList() {
+        return "Пользователи онлайн: " + String.join(", ", activeUsers.keySet());
+    }
+
+    // ВНУТРЕННИЙ КЛАСС-ОБРАБОТЧИК. Каждый объект этого класса живет в своем потоке и общается с ОДНИМ клиентом.
+    private static class ClientHandler implements Runnable {
+        private final Socket socket;
+        private BufferedReader in;  // Поток для ПРИЕМА данных от клиента
+        private PrintWriter out;    // Поток для ОТПРАВКИ данных клиенту
+        private String username;    // Логин данного клиента
+
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try {
+                // Инициализируем потоки ввода-вывода для сокета
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true); // true — автоочистка буфера при отправке
+
+                // Первое сообщение от клиента ВСЕГДА должно быть его логином (Задание 3a)
+                username = in.readLine();
+                if (username == null || username.trim().isEmpty()) {
+                    socket.close();
+                    return;
+                }
+
+                // Добавляем пользователя в нашу общую карту онлайн-игроков
+                activeUsers.put(username, this);
+                // Оповещаем всех остальных, что пользователь вошел (Задание 3a)
+                broadcast("Система: Пользователь [" + username + "] присоединился к чату.");
+
+                String clientMessage;
+                // Запускаем бесконечный цикл чтения сообщений от данного клиента
+                while ((clientMessage = in.readLine()) != null) {
+                    
+                    // Обработка команды /online (Задание 3b)
+                    if (clientMessage.equals("/online")) {
+                        sendMessage(getOnlineUsersList());
+                    } 
+                    // Обработка приватного сообщения /w recipient message (Задание 4b)
+                    else if (clientMessage.startsWith("/w ")) {
+                        String[] parts = clientMessage.split(" ", 3);
+                        if (parts.length >= 3) {
+                            String recipient = parts[1];
+                            String msg = parts[2];
+                            sendPrivateMessage(username, recipient, msg);
+                        } else {
+                            sendMessage("Система: Неверный формат команды. Используйте: /w логин сообщение");
+                        }
+                    } 
+                    // Обычное сообщение — рассылаем всем с добавлением логина в начало (Задание 1, 4a)
+                    else {
+                        broadcast(username + ": " + clientMessage);
+                    }
+                }
+            } catch (IOException e) {
+                // Сюда программа попадает, если клиент резко закрыл консоль или отключился
+            } finally {
+                // Когда цикл завершился (клиент отключился), убираем его из списка онлайн
+                if (username != null) {
+                    activeUsers.remove(username);
+                    // Оповещаем всех, что он ушел (Задание 3a)
+                    broadcast("Система: Пользователь [" + username + "] покинул чат.");
+                }
+                try {
+                    socket.close(); // Закрываем сокет
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        // Вспомогательный метод, чтобы отправить строку текста именно этому клиенту
+        public void sendMessage(String message) {
+            out.println(message);
+        }
+    }
+}
+
+💻 Часть 2. Пишем Клиента (ChatClient.java)
+
+Клиент должен делать две вещи одновременно: читать то, что пишет сервер, и выводить на экран; и параллельно читать то, что пользователь пишет в консоли, и отправлять на сервер. Опять же, без многопоточности тут не обойтись.
+
+Создай файл ChatClient.java в папке chat и добавь код:
+Java
+
+package chat;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+
+public class ChatClient {
+    private static final String SERVER_IP = "127.0.0.1"; // IP-адрес сервера (127.0.0.1 означает "мой компьютер")
+    private static final int SERVER_PORT = 12345;        // Порт сервера
+
+    public static void main(String[] args) {
+        try {
+            // Подключаемся к серверу по IP и порту
+            Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+            System.out.println("Успешное подключение к серверу чата.");
+
+            // Потоки для работы с сетью
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            
+            // Поток для чтения текста из консоли нашего компьютера
+            BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
+
+            // Задание 3a: Первым делом просим пользователя ввести логин
+            System.out.print("Введите ваш логин: ");
+            String login = consoleReader.readLine();
+            out.println(login); // Сразу отправляем логин на сервер первой строчкой
+
+            // СОЗДАЕМ ОТДЕЛЬНЫЙ ПОТОК ДЛЯ ЧТЕНИЯ СООБЩЕНИЙ ОТ СЕРВЕРА (Задание 2)
+            // Это нужно, чтобы пока мы пишем сообщение, программа могла принимать чужие сообщения
+            Thread readThread = new Thread(() -> {
+                try {
+                    String serverMessage;
+                    // readLine() ждет строчку от сервера. Если сервер прислал — выводим на экран
+                    while ((serverMessage = in.readLine()) != null) {
+                        System.out.println(serverMessage);
+                    }
+                } catch (IOException e) {
+                    System.out.println("Соединение с сервером разорвано.");
+                }
+            });
+            readThread.start(); // Запускаем параллельный поток чтения
+
+            // ГЛАВНЫЙ ПОТОК (main) занимается отправкой сообщений (Задание 2)
+            String userMessage;
+            // Бесконечно читаем то, что пользователь вводит руками в консоль
+            while ((userMessage = consoleReader.readLine()) != null) {
+                out.println(userMessage); // Отправляем введенный текст на сервер
+            }
+
+        } catch (IOException e) {
+            System.out.println("Не удалось подключиться к серверу: " + e.getMessage());
+        }
+    }
+}
+
+🚀 Как запустить и протестировать чат:
+
+    Запусти сервер: Кликни правой кнопкой мыши по файлу ChatServer.java и выбери Run 'ChatServer.main()'. В консоли появится надпись, что он запущен и ждет.
+
+    Запусти первого клиента: Открой ChatClient.java и запусти его. В консоли клиента появится запрос логина. Введи, например, Ivan. На сервере и в чате отобразится его подключение.
+
+    Запусти второго клиента: Чтобы запустить еще одного клиента параллельно, в IntelliJ IDEA в правом верхнем углу (рядом с кнопкой запуска клиента) найди настройки конфигурации запуска, нажми "Modify options" и выбери "Allow multiple instances" (Разрешить несколько копий). Запусти ChatClient еще раз. Введи логин Masha.
+
+    Проверь команды: * Напиши в консоли Маши: /online. Она увидит список: Ivan, Masha.
+
+        Напиши обычно сообщение от Ивана: Всем привет!. Маша его увидит как Ivan: Всем привет!.
+
+        Напиши приватное сообщение от Маши Ивану: /w Ivan Секретное сообщение. Его увидит только Иван.

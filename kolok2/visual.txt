@@ -1,0 +1,335 @@
+Задание 1. Спроектируйте графическое окно чата, в котором будут находиться объекты классов:
+
+        JTextArea — многострочное текстовое поле для отображения истории чата,
+
+        JTextField — однострочное поле для ввода нового сообщения,
+
+        JList — визуальный список активных участников чата,
+
+        JButton — кнопка для отправки сообщения.
+        Программируйте кнопку отправки так, чтобы её нажатие добавляло текст из JTextField в JTextArea и очищало поле ввода. Аналогично должно работать нажатие клавиши Enter в поле ввода.
+
+    Задание 2. Запрограммируйте авторизацию пользователя в графическом интерфейсе, используя ранее написанный метод отправки логина на сервер.
+
+    Задание 3. Создайте класс с именем ClientReceiver. Определите в нём функции, отвечающие за все обрабатываемые действия (broadcast — общая рассылка, whisper — приватное сообщение, login broadcast — вход нового пользователя, logout broadcast — выход пользователя, online — список сети). В потоке, обрабатывающем соединение с сервером, пока реализуйте обработку broadcast. Различайте типы сообщений на основе префиксов.
+
+    Задание 4. Реализуйте отображение списка пользователей на форме. При входе клиент должен запросить у сервера актуальный список. Уведомления о входе (login broadcast) и выходе (logout broadcast) должны автоматически добавлять и удалять пользователей из визуального списка JList.
+
+📁 Структура проекта: Где и что создавать?
+
+Мы продолжаем работать в нашем проекте чата. Нам нужно добавить графическое окно и класс-приемник.
+Plaintext
+
+Имя_Проекта
+ └── src
+      └── main
+           └── java
+                ├── chat (папка/пакет)
+                │    ├── ChatServer.java   <-- Сервер (остается из прошлой лабы, чуть обновим)
+                │    ├── ChatWindow.java   <-- НОВЫЙ КЛАСС: Графическое окно (GUI)
+                │    └── ClientReceiver.java <-- НОВЫЙ КЛАСС: Обработчик ответов сервера
+
+🛠️ Модификация Сервера (ChatServer.java)
+
+Чтобы клиент мог легко понимать, что именно ему прислал сервер (просто сообщение, системное уведомление или список пользователей), мы добавим к сообщениям сервера префиксы (команды).
+
+Замени код метода run() внутри ClientHandler в твоем старом ChatServer.java на этот вариант (или просто посмотри, как изменились строки отправки):
+Java
+
+// На замену логики внутри ClientHandler в ChatServer.java
+@Override
+public void run() {
+    try {
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        out = new PrintWriter(socket.getOutputStream(), true);
+
+        username = in.readLine();
+        if (username == null || username.trim().isEmpty()) {
+            socket.close();
+            return;
+        }
+
+        activeUsers.put(username, this);
+        
+        // Задание 4: Шлем ВСЕМ префикс [LOGIN], чтобы они добавили игрока в список JList
+        broadcast("[LOGIN] " + username);
+
+        String clientMessage;
+        while ((clientMessage = in.readLine()) != null) {
+            if (clientMessage.equals("/online")) {
+                // Задание 4: Шлем список пользователей с префиксом [ONLINE]
+                sendMessage("[ONLINE] " + String.join(",", activeUsers.keySet()));
+            } 
+            else if (clientMessage.startsWith("/w ")) {
+                String[] parts = clientMessage.split(" ", 3);
+                if (parts.length >= 3) {
+                    // Задание 3: Приватные сообщения шлем с префиксом [WHISPER]
+                    String recipient = parts[1];
+                    String msg = parts[2];
+                    
+                    ClientHandler rh = activeUsers.get(recipient);
+                    if (rh != null) {
+                        rh.sendMessage("[WHISPER] " + username + ": " + msg);
+                    } else {
+                        sendMessage("[BROADCAST] Система: Пользователь " + recipient + " не в сети.");
+                    }
+                }
+            } 
+            else {
+                // Задание 3: Обычные сообщения шлем с префиксом [BROADCAST]
+                broadcast("[BROADCAST] " + username + ": " + clientMessage);
+            }
+        }
+    } catch (IOException e) {
+        // Ошибка подключения
+    } finally {
+        if (username != null) {
+            activeUsers.remove(username);
+            // Задание 4: Шлем ВСЕМ префикс [LOGOUT], чтобы они удалили игрока из JList
+            broadcast("[LOGOUT] " + username);
+        }
+        try { socket.close(); } catch (IOException e) { e.printStackTrace(); }
+    }
+}
+
+📥 Часть 1. Пишем ClientReceiver.java (Логика обработки ответов)
+
+Этот класс слушает сервер в отдельном потоке. Он получает строку, смотрит на её "префикс" (начало строки) и решает, что делать: обновить список пользователей на экране или дописать текст в окно чата.
+Java
+
+package chat;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+
+public class ClientReceiver implements Runnable {
+    private final BufferedReader in;       // Поток чтения из сети
+    private final ChatWindow chatWindow;   // Ссылка на окно чата, чтобы менять в нем элементы
+
+    // Конструктор связывает приемник с сетью и графическим окном
+    public ClientReceiver(BufferedReader in, ChatWindow chatWindow) {
+        this.in = in;
+        this.chatWindow = chatWindow;
+    }
+
+    @Override
+    public void run() {
+        try {
+            String serverMessage;
+            // Бесконечно читаем строки от сервера
+            while ((serverMessage = in.readLine()) != null) {
+                
+                // Zadanie 3 & 4: Разделяем логику на основе префиксов
+                if (serverMessage.startsWith("[BROADCAST] ")) {
+                    String cleanMsg = serverMessage.replace("[BROADCAST] ", "");
+                    broadcast(cleanMsg);
+                } 
+                else if (serverMessage.startsWith("[WHISPER] ")) {
+                    String cleanMsg = serverMessage.replace("[WHISPER] ", "");
+                    whisper(cleanMsg);
+                } 
+                else if (serverMessage.startsWith("[LOGIN] ")) {
+                    String user = serverMessage.replace("[LOGIN] ", "");
+                    loginBroadcast(user);
+                } 
+                else if (serverMessage.startsWith("[LOGOUT] ")) {
+                    String user = serverMessage.replace("[LOGOUT] ", "");
+                    logoutBroadcast(user);
+                } 
+                else if (serverMessage.startsWith("[ONLINE] ")) {
+                    String list = serverMessage.replace("[ONLINE] ", "");
+                    online(list);
+                }
+            }
+        } catch (IOException e) {
+            chatWindow.appendMessage("Система: Соединение с сервером потеряно.");
+        }
+    }
+
+    // Действие 1: Добавление обычного сообщения в текстовое поле окна
+    public void broadcast(String message) {
+        chatWindow.appendMessage(message);
+    }
+
+    // Действие 2: Добавление приватного сообщения (можно выделить текстом)
+    public void whisper(String message) {
+        chatWindow.appendMessage("[ЛИЧНОЕ] " + message);
+    }
+
+    // Действие 3: Кто-то вошел -> добавляем его в список на экране (JList)
+    public void loginBroadcast(String username) {
+        chatWindow.addUserToList(username);
+        chatWindow.appendMessage("Система: [" + username + "] вошел в чат.");
+    }
+
+    // Действие 4: Кто-то вышел -> удаляем его из списка на экране
+    public void logoutBroadcast(String username) {
+        chatWindow.removeUserFromList(username);
+        chatWindow.appendMessage("Система: [" + username + "] покинул чат.");
+    }
+
+    // Действие 5: Получили полный список людей при входе -> полностью обновляем JList
+    public void online(String usersData) {
+        String[] users = usersData.split(",");
+        chatWindow.clearUserList(); // Чистим старый список
+        for (String user : users) {
+            chatWindow.addUserToList(user); // Добавляем актуальных пользователей
+        }
+    }
+}
+
+🎨 Часть 2. Пишем Графическое Окно (ChatWindow.java)
+
+Это главный класс интерфейса. Он создает окно с использованием элементов JFrame, распределяет компоненты по экрану с помощью менеджер компоновки BorderLayout, собирает данные из полей ввода и управляет визуальным списком.
+Java
+
+package chat;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+
+public class ChatWindow extends JFrame {
+    // Элементы интерфейса по условию Zadanie 1
+    private JTextArea chatArea;        // Поле истории чата
+    private JTextField messageField;   // Поле ввода сообщения
+    private JList<String> userList;    // Визуальный список участников
+    private DefaultListModel<String> listModel; // Специальный класс-модель для динамического изменения JList
+    private JButton sendButton;        // Кнопка отправки
+
+    // Сетевые компоненты
+    private Socket socket;
+    private PrintWriter out;
+    private BufferedReader in;
+
+    public ChatWindow() {
+        // Настраиваем базовые параметры нашего графического окна
+        setTitle("Сетевой Чат GUI");
+        setSize(600, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // Программа закроется при клике на крестик
+        setLocationRelativeTo(null); // Окно откроется строго по центру экрана
+
+        // Инициализируем компоненты
+        chatArea = new JTextArea();
+        chatArea.setEditable(false); // Запрещаем пользователю стирать историю чата руками
+        JScrollPane chatScrollPane = new JScrollPane(chatArea); // Добавляем полосу прокрутки для чата
+
+        messageField = new JTextField();
+        sendButton = new JButton("Отправить");
+
+        listModel = new DefaultListModel<>();
+        userList = new JList<>(listModel);
+        JScrollPane userScrollPane = new JScrollPane(userList); // Полоса прокрутки для списка пользователей
+        userScrollPane.setPreferredSize(new Dimension(150, 0)); // Фиксируем ширину панели списка
+
+        // Компонуем элементы на форме с помощью BorderLayout
+        setLayout(new BorderLayout());
+        add(chatScrollPane, BorderLayout.CENTER); // Чат по центру
+        add(userScrollPane, BorderLayout.EAST);   // Список пользователей справа
+
+        // Нижняя панель для ввода текста и кнопки
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(messageField, BorderLayout.CENTER);
+        bottomPanel.add(sendButton, BorderLayout.EAST);
+        add(bottomPanel, BorderLayout.SOUTH); // Панель ввода в самом внизу окна
+
+        // ==========================================
+        // Zadanie 1. Логика работы кнопки и Enter
+        // ==========================================
+        ActionListener sendAction = new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                sendMessageFromField();
+            }
+        };
+
+        // Назначаем действие и кнопке, и текстовому полю (активируется при нажатии Enter)
+        sendButton.addActionListener(sendAction);
+        messageField.addActionListener(sendAction);
+
+        // Показываем окно на экране
+        setVisible(true);
+
+        // После создания окна запускаем подключение к серверу
+        connectToServer();
+    }
+
+    // Метод берет текст из поля, шлет в сеть и очищает поле
+    private void sendMessageFromField() {
+        String text = messageField.getText().trim();
+        if (!text.isEmpty()) {
+            out.println(text); // Отправляем строку на сервер через сеть
+            messageField.setText(""); // Очищаем поле JTextField (Zadanie 1)
+        }
+    }
+
+    // ==========================================
+    // Zadanie 2. Логика авторизации
+    // ==========================================
+    private void connectToServer() {
+        try {
+            socket = new Socket("127.0.0.1", 12345);
+            out = new PrintWriter(socket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            // Всплывающее диалоговое окно для ввода логина перед запуском чата
+            String login = JOptionPane.showInputDialog(this, "Введите ваш логин:", "Авторизация", JOptionPane.PLAIN_MESSAGE);
+            
+            if (login == null || login.trim().isEmpty()) {
+                System.exit(0); // Если логин не введен, закрываем программу
+            }
+
+            out.println(login); // Шлем логин серверу первой строчкой
+            
+            // Zadanie 4: Сразу после логина просим у сервера список онлайн-пользователей
+            out.println("/online");
+
+            // Запускаем класс-приемник ClientReceiver в отдельном потоке для чтения сети
+            ClientReceiver receiver = new ClientReceiver(in, this);
+            new Thread(receiver).start();
+
+        } catch (Exception e) {
+            chatArea.append("Не удалось подключиться к серверу: " + e.getMessage());
+        }
+    }
+
+    // Вспомогательные методы для изменения интерфейса из потока ClientReceiver
+    public void appendMessage(String text) {
+        chatArea.append(text + "\n");
+    }
+
+    public void addUserToList(String username) {
+        if (!listModel.contains(username)) {
+            listModel.addElement(username);
+        }
+    }
+
+    public void removeUserFromList(String username) {
+        listModel.removeElement(username);
+    }
+
+    public void clearUserList() {
+        listModel.clear();
+    }
+
+    // Точка запуска графического приложения
+    public static void main(String[] args) {
+        // По правилам Java Swing, графический интерфейс должен запускаться в специальном потоке EDT
+        SwingUtilities.invokeLater(() -> new ChatWindow());
+    }
+}
+
+🚀 Как запустить и проверить лабу:
+
+    Запусти старый класс ChatServer.java (с нашими новыми префиксами).
+
+    Запусти класс ChatWindow.java. Появится окно авторизации, введи имя (например, Pavel). Откроется чат, а справа в списке JList появится имя Pavel.
+
+    Разреши в IntelliJ IDEA запуск нескольких копий ChatWindow (Allow multiple instances) и запусти второе окно чата под именем Anna.
+
+    Результат: У Анны и Павла в списках пользователей отобразятся оба имени. Сообщения будут мгновенно пересылаться и дополняться в JTextArea.

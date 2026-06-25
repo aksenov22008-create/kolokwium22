@@ -1,0 +1,382 @@
+Задание 1. Запрограммируйте рисование кругов на холсте (Canvas) по клику мыши. Центр круга должен быть в месте клика. Цвет и радиус круга должны считываться из соответствующих элементов управления (интерфейса FXML).
+
+    Задание 2. Создайте пакеты server и client. На сервере напишите Server (с ServerSocket) и ClientThread для работы с каждым клиентом. Реализуйте метод broadcast(), рассылающий сообщения всем. У клиента напишите ServerThread с методом send(), который отправляет параметры созданного круга на сервер.
+
+    Задание 3. Создайте компактный рекорд Dot (хранит координаты, цвет, радиус). Напишите в нем статические методы: toMessage() (превращает параметры круга в текстовую строку для отправки по сети) и fromMessage() (собирает объект Dot обратно из полученной строки).
+
+    Задание 4. Свяжите сеть и интерфейс в контроллере. По клику мыши вместо мгновенного рисования вызывайте метод send(). Внутри ServerThread используйте механизм Consumer<Dot> (потребитель данных). Контроллер должен настроить этот потребитель так, чтобы прилетающие из сети круги автоматически рисовались на холсте.
+
+    Задание 5. Подключите базу данных SQLite и создайте таблицу dot. При старте сервер подключается к БД. Реализуйте методы saveDot() (сохранение круга) и getSavedDots() (загрузка списка всех кругов). Каждый раз при рассылке broadcast() круг должен сохраняться в базу. При подключении нового клиента сервер сразу отправляет ему все круги из базы.
+
+📁 Структура папок проекта
+
+Все файлы создаются внутри src/main/java, а FXML-файл разметки интерфейса должен лежать в папке ресурсов src/main/resources.
+Plaintext
+
+Имя_Проекта
+ ├── src
+ │    ├── main
+ │    │    ├── java
+ │    │    │    └── app (главный пакет приложения)
+ │    │    │         ├── AppWindow.java      <-- Запуск JavaFX приложения
+ │    │    │         ├── AppController.java  <-- Контроллер интерфейса (Zadanie 1, 4)
+ │    │    │         │
+ │    │    │         ├── shared (общие классы)
+ │    │    │         │    └── Dot.java       <-- Рекорд круга (Zadanie 3)
+ │    │    │         │
+ │    │    │         ├── server (пакет сервера)
+ │    │    │         │    └── Server.java    <-- Сервер + БД (Zadanie 2, 5)
+ │    │    │         │
+ │    │    │         └── client (пакет клиента)
+ │    │    │              └── ServerThread.java <-- Поток клиента для сети (Zadanie 2, 4)
+ │    │    └── resources
+ │    │         └── app_view.fxml            <-- Разметка интерфейса (уже дана)
+ └── pom.xml
+
+🛠️ Шаг 3. Создаем рекорд передачи данных (Dot.java)
+
+Начнем с кирпичика данных, вокруг которого строится вся лаба. Он умеет превращать объект в строку вида "100;150;#ff0000;15" и собирать его обратно.
+Java
+
+package app.shared;
+
+// Компактный рекорд для хранения параметров круга (Шаг 3)
+public record Dot(int x, int y, String color, int radius) {
+
+    // Статический метод: превращает параметры в строку для сети
+    public static String toMessage(int x, int y, String color, int radius) {
+        return x + ";" + y + ";" + color + ";" + radius;
+    }
+
+    // Нестатический метод: превращает текущий объект в строку (Шаг 5)
+    public String toNetworkMessage() {
+        return this.x + ";" + this.y + ";" + this.color + ";" + this.radius;
+    }
+
+    // Статический метод: парсит (расшифровывает) строку от сети обратно в объект Dot
+    public static Dot fromMessage(String message) {
+        // Разрезаем строку по точке с запятой
+        String[] parts = message.split(";");
+        int x = Integer.parseInt(parts[0]);
+        int y = Integer.parseInt(parts[1]);
+        String color = parts[2];
+        int radius = Integer.parseInt(parts[3]);
+        
+        return new Dot(x, y, color, radius);
+    }
+}
+
+🛠️ Шаг 2 и 5. Пишем Сервер с базой данных (Server.java)
+
+Сервер принимает подключения, сохраняет координаты точек в базу данных SQLite и рассылает их всем остальным.
+Java
+
+package app.server;
+
+import app.shared.Dot;
+import java.io.*;
+import java.net.*;
+import java.sql.*;
+import java.util.*;
+
+public class Server {
+    private static final int PORT = 12345;
+    // Список всех подключенных клиентских потоков
+    private static final List<ClientThread> clients = new ArrayList<>();
+    private static Connection dbConnection;
+
+    public static void main(String[] args) {
+        connectDatabase(); // Шаг 5: Подключаем базу данных при старте
+        createTable();     // Создаем таблицу, если её нет
+
+        System.out.println("Сервер рисования запущен...");
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            while (true) {
+                Socket socket = serverSocket.accept();
+                ClientThread clientThread = new ClientThread(socket);
+                clients.add(clientThread);
+                clientThread.start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Шаг 5: Подключение к SQLite
+    private static void connectDatabase() {
+        try {
+            dbConnection = DriverManager.getConnection("jdbc:sqlite:dots_archive.db");
+            System.out.println("База данных успешно подключена.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void createTable() {
+        String sql = "CREATE TABLE IF NOT EXISTS dot (" +
+                     "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT," +
+                     "x INTEGER NOT NULL, y INTEGER NOT NULL, " +
+                     "color TEXT NOT NULL, radius INTEGER NOT NULL);";
+        try (Statement stmt = dbConnection.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Шаг 5: Метод сохранения точки в базу данных
+    public static synchronized void saveDot(Dot dot) {
+        String sql = "INSERT INTO dot(x, y, color, radius) VALUES(?, ?, ?, ?)";
+        try (PreparedStatement pstmt = dbConnection.prepareStatement(sql)) {
+            pstmt.setInt(1, dot.x());
+            pstmt.setInt(2, dot.y());
+            pstmt.setString(3, dot.color());
+            pstmt.setInt(4, dot.radius());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Шаг 5: Метод выгрузки всех точек из базы данных
+    public static synchronized List<Dot> getSavedDots() {
+        List<Dot> dots = new ArrayList<>();
+        String sql = "SELECT x, y, color, radius FROM dot";
+        try (Statement stmt = dbConnection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                dots.add(new Dot(rs.getInt("x"), rs.getInt("y"), 
+                                 rs.getString("color"), rs.getInt("radius")));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return dots;
+    }
+
+    // Шаг 2: Рассылка сообщения всем клиентам
+    public static synchronized void broadcast(String message) {
+        // Шаг 5: Если это данные точки, сохраняем её в базу прямо во время рассылки
+        try {
+            Dot dot = Dot.fromMessage(message);
+            saveDot(dot);
+        } catch (Exception e) {
+            // Игнорируем, если пришло невалидное системное сообщение
+        }
+
+        // Отправляем строку каждому клиенту
+        for (ClientThread client : clients) {
+            client.sendMessage(message);
+        }
+    }
+
+    // Внутренний класс сервера для обслуживания конкретного сокета клиента
+    private static class ClientThread extends Thread {
+        private Socket socket;
+        private BufferedReader in;
+        private PrintWriter out;
+
+        public ClientThread(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try {
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true);
+
+                // Шаг 5: Сразу после подключения шлем новому клиенту архив всех старых кругов из базы
+                List<Dot> archive = getSavedDots();
+                for (Dot oldDot : archive) {
+                    sendMessage(oldDot.toNetworkMessage());
+                }
+
+                String msg;
+                while ((msg = in.readLine()) != null) {
+                    broadcast(msg); // Пересылаем полученную от клиента точку всем
+                }
+            } catch (IOException e) {
+                // Отключение клиента
+            } finally {
+                clients.remove(this);
+                try { socket.close(); } catch (IOException e) { e.printStackTrace(); }
+            }
+        }
+
+        public void sendMessage(String msg) {
+            out.println(msg);
+        }
+    }
+}
+
+🛠️ Шаг 2 и 4. Пишем Клиентский сетевой поток (ServerThread.java)
+
+Этот класс живет на стороне клиента. Он отправляет новые точки на сервер и с помощью функционального интерфейса Consumer<Dot> передает прилетающие из сети точки контроллеру интерфейса.
+Java
+
+package app.client;
+
+import app.shared.Dot;
+import java.io.*;
+import java.net.Socket;
+import java.util.function.Consumer;
+
+public class ServerThread extends Thread {
+    private Socket socket;
+    private PrintWriter out;
+    private BufferedReader in;
+    
+    // Шаг 4: Потребитель (Consumer). Он хранит в себе ссылку на метод рисования из контроллера
+    private Consumer<Dot> dotConsumer;
+
+    public ServerThread(String host, int port) {
+        try {
+            this.socket = new Socket(host, port);
+            this.out = new PrintWriter(socket.getOutputStream(), true);
+            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Мутатор (сеттер) для Consumer — Шаг 4
+    public void setDotConsumer(Consumer<Dot> dotConsumer) {
+        this.dotConsumer = dotConsumer;
+    }
+
+    // Метод отправки параметров круга на сервер (Шаг 2)
+    public void send(int x, int y, String color, int radius) {
+        if (out != null) {
+            // Форматируем данные через статический метод рекорда и шлем в сеть
+            out.println(Dot.toMessage(x, y, color, radius));
+        }
+    }
+
+    @Override
+    public void run() {
+        try {
+            String serverMsg;
+            // Бесконечно читаем сообщения от сервера
+            while ((serverMsg = in.readLine()) != null) {
+                // Если нам прилетели координаты точки, восстанавливаем объект Dot
+                Dot receivedDot = Dot.fromMessage(serverMsg);
+                
+                // Если контроллер передал нам функцию отрисовки, вызываем её
+                if (dotConsumer != null) {
+                    dotConsumer.accept(receivedDot);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Связь с сервером прервана.");
+        }
+    }
+}
+
+🎨 Шаг 1 и 4. Контроллер графического интерфейса (AppController.java)
+
+Контроллер управляет элементами окна FXML. Он считывает значения цвета и радиуса, ловит клики мыши и вызывает сетевую отправку.
+Java
+
+package app;
+
+import app.client.ServerThread;
+import app.shared.Dot;
+import javafx.application.Platform;
+import javafx.fxml.FXML;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.ColorPicker;
+import javafx.scene.control.Slider;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.paint.Color;
+
+public class AppController {
+
+    // Связываем переменные с объектами на сцене FXML по их fx:id
+    @FXML private Canvas gameCanvas;
+    @FXML private ColorPicker colorPicker;
+    @FXML private Slider radiusSlider;
+
+    private final ServerThread serverThread;
+
+    // Шаг 4: Конструктор контроллера принимает сетевой поток
+    public AppController(ServerThread serverThread) {
+        this.serverThread = serverThread;
+        
+        // Настраиваем Потребителя (Consumer). Когда из сети прилетает Dot,
+        // мы запускаем код рисования внутри специального графического потока JavaFX
+        this.serverThread.setDotConsumer(dot -> {
+            Platform.runLater(() -> drawCircle(dot.x(), dot.y(), dot.color(), dot.radius()));
+        });
+    }
+
+    // Инициализация (вызывается JavaFX автоматически после загрузки FXML)
+    @FXML
+    public void initialize() {
+        // Вешаем на холст слушатель клика мыши (Шаг 1)
+        gameCanvas.addEventHandler(MouseEvent.MOUSE_CLICKED, event -> {
+            int clickX = (int) event.getX();
+            int clickY = (int) event.getY();
+            
+            // Считываем значения из контроллеров интерфейса
+            String hexColor = "#" + Integer.toHexString(colorPicker.getValue().hashCode()).substring(0, 6);
+            int radius = (int) radiusSlider.getValue();
+
+            // Шаг 4: Вместо прямого рисования просто шлем данные в сеть.
+            // Сервер сделает broadcast, точка вернется сюда и нарисуется сама!
+            serverThread.send(clickX, clickY, hexColor, radius);
+        });
+    }
+
+    // Вспомогательный метод физического рисования круга на Canvas
+    private void drawCircle(int x, int y, String hexColor, int radius) {
+        GraphicsContext gc = gameCanvas.getGraphicsContext2D();
+        gc.setFill(Color.web(hexColor)); // Устанавливаем цвет кисти
+        
+        // Вычисляем левый верхний угол описанного квадрата, чтобы круг отцентрировался по клику
+        double topLeftX = x - radius;
+        double topLeftY = y - radius;
+        double diameter = radius * 2;
+
+        gc.fillOval(topLeftX, topLeftY, diameter, diameter); // Рисуем круг
+    }
+}
+
+🚀 Точка Запуска Приложения (AppWindow.java)
+
+Этот класс создает окно, запускает ServerThread и связывает его с контроллером.
+Java
+
+package app;
+
+import app.client.ServerThread;
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+
+public class AppWindow extends Application {
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+        // 1. Инициализируем сетевой поток клиента
+        ServerThread serverThread = new ServerThread("127.0.0.1", 12345);
+        serverThread.start();
+
+        // 2. Загружаем интерфейс из файла FXML
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/app_view.fxml"));
+        
+        // Шаг 4: Передаем фабрику контроллеров, чтобы внедрить serverThread через конструктор
+        loader.setControllerFactory(param -> new AppController(serverThread));
+        
+        Parent root = loader.load();
+        primaryStage.setTitle("Сетевое рисование");
+        primaryStage.setScene(new Scene(root));
+        primaryStage.show();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}

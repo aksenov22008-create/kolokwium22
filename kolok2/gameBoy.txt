@@ -1,0 +1,466 @@
+Мой_Проект_Breakout
+ ├── pom.xml                   <-- Файл настроек Maven (зависимости JavaFX)
+ └── src
+      └── main
+           └── java
+                └── breakout   <-- Главная папка (пакет) с игрой
+                     ├── GameApp.java
+                     ├── GameCanvas.java
+                     ├── GraphicsItem.java
+                     ├── Paddle.java
+                     ├── Ball.java
+                     └── Brick.java
+                     
+                     
+Шаг 1. Создать игровой холст GameCanvas, который закрашивает себя черным цветом и выводится на экран вместо стандартных шаблонов.
+
+Шаг 2. Создать базовый абстрактный класс GraphicsItem для всех игровых объектов с автоматическим пересчетом координат в диапазон от 0 до 1. Создать класс платформы (Paddle), управляемой мышью.
+
+Шаг 3. Создать класс мяча (Ball) с вектором движения, скоростью и изменением позиции. Реализовать запуск игры по клику мыши.
+
+Шаг 4. Добавить игровой цикл AnimationTimer для плавной отрисовки кадров с учетом времени (дельта времени).
+
+Шаг 5. Реализовать логику отскоков мяча от стен холста и от платформы.
+
+Шаг 6. Создать класс кирпича (Brick) и виртуальную сетку для автоматического построения уровней из рядов и колонок.
+
+Шаг 7. Реализовать проверку столкновений мяча с кирпичами по четырем крайним точкам мяча для определения стороны удара.
+
+Шаг 8. Модифицировать физику отскока от платформы: угол должен зависеть от того, насколько далеко от центра платформы ударился мяч.
+
+
+🛠️ Шаг 1 и 2. База игры и Платформа (Paddle)
+1. Файл GraphicsItem.java
+
+Это самый главный «предок» для всех объектов в игре. Здесь хранятся размеры экрана и общие координаты от 0 до 1. Создай его в папке breakout:
+Java
+
+package breakout;
+
+import javafx.scene.canvas.GraphicsContext;
+
+public abstract class GraphicsItem {
+    // Статические поля: они одинаковы для ВСЕХ объектов игры
+    protected static double canvasWidth;
+    protected static double canvasHeight;
+
+    // Координаты и размеры конкретного объекта (в диапазоне от 0.0 до 1.0)
+    protected double x, y;
+    protected double width, height;
+
+    // Сеттер, чтобы холст один раз передал сюда реальные размеры экрана
+    public static void setCanvasSize(double width, double height) {
+        canvasWidth = width;
+        canvasHeight = height;
+    }
+
+    // Абстрактный метод рисования. Каждый потомок обязан написать свой вариант
+    public abstract void draw(GraphicsContext gc);
+
+    // Геттеры для координат (нужны для проверки столкновений)
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public double getWidth() { return width; }
+    public double getHeight() { return height; }
+}
+
+2. Файл Paddle.java (Платформа)
+
+Создай класс платформы, которая управляется мышью и рисует прямоугольник.
+Java
+
+package breakout;
+
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+
+public class Paddle extends GraphicsItem {
+
+    // Конструктор по умолчанию (без аргументов) — Шаг 2
+    public Paddle() {
+        this.width = 0.2;   // Ширина платформы — 20% от ширины экрана
+        this.height = 0.03; // Высота — 3% от высоты экрана
+        this.x = 0.5 - (width / 2); // Ставим строго по центру горизонтали
+        this.y = 0.9;       // Ставим в нижнюю часть экрана (на 90% высоты)
+    }
+
+    // Метод перемещения платформы за мышкой
+    public void moveWithMouse(double mouseX) {
+        // Переводим координату мыши из пикселей в систему от 0 до 1
+        double relativeX = mouseX / canvasWidth;
+        
+        // Устанавливаем x так, чтобы мышка была ровно по центру (X - половина ширины)
+        this.x = relativeX - (width / 2);
+
+        // Ограничиваем, чтобы платформа не вылетала за левый и правый края экрана
+        if (this.x < 0) this.x = 0;
+        if (this.x > 1 - this.width) this.x = 1 - this.width;
+    }
+
+    @Override
+    public void draw(GraphicsContext gc) {
+        gc.setFill(Color.GREENYELLOW); // Выбираем цвет для платформы
+        
+        // Пересчитываем абстрактные 0-1 в реальные пиксели прямо во время рисования
+        gc.fillRect(x * canvasWidth, y * canvasHeight, width * canvasWidth, height * canvasHeight);
+    }
+}
+
+⚽ Шаг 3, 4 и 5. Мяч (Ball) и его движение
+3. Файл Ball.java
+
+Здесь живет математика движения мяча, его вектор направления и логика отскоков.
+Java
+
+package breakout;
+
+import javafx.geometry.Point2D;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+
+public class Ball extends GraphicsItem {
+    private Point2D moveVector; // Знормализированный вектор движения (направление)
+    private double velocity;    // Скорость движения (доля экрана в секунду)
+
+    public Ball() {
+        this.width = 0.025;  // Диаметр мяча
+        this.height = 0.025; // Диаметр мяча
+        this.velocity = 0.4; // Мяч пролетает 40% экрана за 1 секунду
+        
+        // Инициализируем вектор под 45 градусов вправо-вверх
+        // В JavaFX ось Y идет вниз, поэтому -0.707 летит ВВЕРХ
+        this.moveVector = new Point2D(0.707, -0.707);
+    }
+
+    // Установка позиции по переданной точке (середина мяча)
+    public void setPosition(Point2D point) {
+        this.x = point.getX() - (width / 2);
+        this.y = point.getY() - (height / 2);
+    }
+
+    // Обновление позиции с учетом дельты времени (Шаг 4)
+    public void updatePosition(double deltaTime) {
+        this.x += moveVector.getX() * velocity * deltaTime;
+        this.y += moveVector.getY() * velocity * deltaTime;
+    }
+
+    // Шаг 5: Отскок по горизонтали (о левую/правую стену) — меняем знак X
+    public void bounceHorizontally() {
+        this.moveVector = new Point2D(-moveVector.getX(), moveVector.getY());
+    }
+
+    // Шаг 5: Отскок по вертикали (о потолок или кирпич) — меняем знак Y
+    public void bounceVertically() {
+        this.moveVector = new Point2D(moveVector.getX(), -moveVector.getY());
+    }
+
+    // Шаг 8: Умный отскок от платформы в зависимости от места удара
+    public void bounceFromPaddle(double hitPosition) {
+        // hitPosition — это число от -1.0 (левый край) до 1.0 (правый край платформы)
+        double angle = hitPosition * 60; // Максимальный угол отклонения 60 градусов
+        
+        // Вычисляем новый вектор направления по формуле тригонометрии
+        double dx = Math.sin(Math.toRadians(angle));
+        double dy = -Math.cos(Math.toRadians(angle)); // Минус, чтобы всегда летел вверх
+        
+        this.moveVector = new Point2D(dx, dy).normalize(); // Нормализуем длину вектора до 1
+    }
+
+    // Шаг 7: Четыре крайние точки мяча для проверки столкновений
+    public Point2D getTopPoint()    { return new Point2D(x + width/2, y); }
+    public Point2D getBottomPoint() { return new Point2D(x + width/2, y + height); }
+    public Point2D getLeftPoint()   { return new Point2D(x, y + height/2); }
+    public Point2D getRightPoint()  { return new Point2D(x + width, y + height/2); }
+
+    @Override
+    public void draw(GraphicsContext gc) {
+        gc.setFill(Color.WHITE); // Мяч должен быть белым кругом
+        gc.fillOval(x * canvasWidth, y * canvasHeight, width * canvasWidth, height * canvasHeight);
+    }
+}
+
+🧱 Шаг 6 и 7. Кирпичи и Сетка (Brick)
+4. Файл Brick.java
+
+Класс описывает один кирпич, его положение на виртуальной сетке и умеет определять, с какой стороны в него влетел мяч.
+Java
+
+package breakout;
+
+import javafx.geometry.Point2D;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+
+public class Brick extends GraphicsItem {
+    private static int gridRows;
+    private static int gridCols;
+    private Color color;
+
+    // Перечисление типов разрушения (Шаг 7)
+    public enum CrushType { NoCrush, HorizontalCrush, VerticalCrush }
+
+    public static void setGridSize(int rows, int cols) {
+        gridRows = rows;
+        gridCols = cols;
+    }
+
+    // Конструктор принимает позицию на сетке (например, ряд 3, колонка 2)
+    public Brick(int row, int col, Color color) {
+        this.color = color;
+        
+        // Вычисляем размеры одного кирпича исходя из сетки
+        this.width = 1.0 / gridCols;
+        this.height = 0.5 / gridRows; // Занимаем кирпичами только верхнюю половину экрана (0.5)
+
+        // Вычисляем координаты X и Y на экране
+        this.x = col * this.width;
+        this.y = row * this.height;
+    }
+
+    // Шаг 7: Проверка, за зашел ли мяч внутрь кирпича и с какой стороны
+    public CrushType checkCrush(Point2D top, Point2D bottom, Point2D left, Point2D right) {
+        // Проверяем, находится ли мяч вообще в границах этого кирпича
+        boolean isInside = right.getX() >= x && left.getX() <= x + width &&
+                           bottom.getY() >= y && top.getY() <= y + height;
+        
+        if (!isInside) return CrushType.NoCrush;
+
+        // Если нижняя точка мяча пересекла верхнюю грань кирпича — это вертикальный удар
+        if (bottom.getY() >= y && bottom.getY() - y < 0.01) return CrushType.VerticalCrush;
+        if (top.getY() <= y + height && (y + height) - top.getY() < 0.01) return CrushType.VerticalCrush;
+
+        // Иначе это боковой (горизонтальный) удар
+        return CrushType.HorizontalCrush;
+    }
+
+    @Override
+    public void draw(GraphicsContext gc) {
+        // Рисуем основной кирпич
+        gc.setFill(color);
+        gc.fillRect(x * canvasWidth, y * canvasHeight, width * canvasWidth, height * canvasHeight);
+
+        // Рисуем рамку (эффект трехмерности / разделения кирпичей)
+        gc.setStroke(color.darker());
+        gc.setLineWidth(1);
+        gc.strokeRect(x * canvasWidth, y * canvasHeight, width * canvasWidth, height * canvasHeight);
+    }
+}
+
+🎮 Сердце игры: Холст (GameCanvas) и Игровой цикл
+5. Файл GameCanvas.java
+
+Здесь собираются все объекты, работает игровой цикл AnimationTimer, отслеживаются движения мыши и проверяются правила отскоков.
+Java
+
+package breakout;
+
+import javafx.animation.AnimationTimer;
+import javafx.geometry.Point2D;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.paint.Color;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+public class GameCanvas extends Canvas {
+    private final GraphicsContext gc;
+    private final Paddle paddle;
+    private final Ball ball;
+    private final List<Brick> bricks = new ArrayList<>();
+
+    private boolean gameRunning = false; // Флаг: идет ли игра (Шаг 3)
+    private long lastUpdateTime = 0;     // Время предыдущего кадра в наносекундах
+
+    public GameCanvas(double width, double height) {
+        super(width, height); // Задаем размеры холста
+        gc = this.getGraphicsContext2D();
+
+        // Передаем размеры холста в базовый класс предметов
+        GraphicsItem.setCanvasSize(width, height);
+
+        // Создаем платформу и мяч
+        paddle = new Paddle();
+        ball = new Ball();
+
+        // Загружаем уровень (Шаг 6)
+        loadLevel();
+
+        // Привязываем мяч к платформе до старта игры
+        resetBallPosition();
+
+        // СЛУШАТЕЛЬ МЫШИ: Движение мыши двигает платформу (Шаг 2)
+        this.setOnMouseMoved(event -> {
+            paddle.moveWithMouse(event.getX());
+            if (!gameRunning) {
+                resetBallPosition(); // Мяч катается по платформе до старта
+            }
+        });
+
+        // КЛИК МЫШИ: Стартует игру (Шаг 3)
+        this.setOnMouseClicked(event -> {
+            if (!gameRunning) {
+                gameRunning = true;
+                lastUpdateTime = System.nanoTime(); // Сбрасываем таймер старта
+            }
+        });
+
+        // ИГРОВОЙ ЦИКЛ (Шаг 4)
+        AnimationTimer gameLoop = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                if (gameRunning) {
+                    // Вычисляем дельту времени (сколько секунд прошло с прошлого кадра)
+                    double deltaTime = (now - lastUpdateTime) / 1_000_000_000.0;
+                    lastUpdateTime = now;
+
+                    // Обновляем физику
+                    updateGame(deltaTime);
+                }
+                // Перерисовываем экран в любом случае
+                draw();
+            }
+        };
+        gameLoop.start(); // Запуск бесконечного цикла
+    }
+
+    private void resetBallPosition() {
+        // Ставим мяч ровно по центру над платформой
+        ball.setPosition(new Point2D(paddle.getX() + paddle.getWidth() / 2, paddle.getY() - 0.015));
+    }
+
+    private void loadLevel() {
+        int rows = 20;
+        int cols = 10;
+        Brick.setGridSize(rows, cols);
+
+        Color[] colors = {Color.RED, Color.ORANGE, Color.YELLOW, Color.GREEN, Color.BLUE, Color.PURPLE};
+
+        // Заполняем ряды с 2 по 7 кирпичами (Шаг 6)
+        for (int r = 2; r <= 7; r++) {
+            Color rowColor = colors[r - 2];
+            for (int c = 0; c < cols; c++) {
+                bricks.add(new Brick(r, c, rowColor));
+            }
+        }
+    }
+
+    // Обновление логики игры (Шаг 5 и 7)
+    private void updateGame(double deltaTime) {
+        ball.updatePosition(deltaTime);
+
+        // 1. Проверка отскоков от стен холста (Шаг 5)
+        if (ball.getX() <= 0 || ball.getX() >= 1 - ball.getWidth()) {
+            ball.bounceHorizontally();
+        }
+        if (ball.getY() <= 0) {
+            ball.bounceVertically();
+        }
+        // Если мяч упал ниже экрана — сбрасываем игру
+        if (ball.getY() >= 1) {
+            gameRunning = false;
+            resetBallPosition();
+            return;
+        }
+
+        // 2. Проверка отскока от платформы (Шаг 5 и 8)
+        if (shouldBallBounceFromPaddle()) {
+            // Вычисляем, куда именно упал мяч относительно центра платформы (число от -1 до 1)
+            double paddleCenter = paddle.getX() + paddle.getWidth() / 2;
+            double ballCenter = ball.getX() + ball.getWidth() / 2;
+            double hitPoint = (ballCenter - paddleCenter) / (paddle.getWidth() / 2);
+            
+            ball.bounceFromPaddle(hitPoint);
+        }
+
+        // 3. Проверка столкновений с кирпичами (Шаг 7)
+        Iterator<Brick> iterator = bricks.iterator();
+        while (iterator.hasNext()) {
+            Brick brick = iterator.next();
+            Brick.CrushType crush = brick.checkCrush(
+                    ball.getTopPoint(), ball.getBottomPoint(), ball.getLeftPoint(), ball.getRightPoint()
+            );
+
+            if (crush != Brick.CrushType.NoCrush) {
+                iterator.remove(); // Удаляем разбитый кирпич из списка
+                if (crush == Brick.CrushType.VerticalCrush) {
+                    ball.bounceVertically();
+                } else {
+                    ball.bounceHorizontally();
+                }
+                break; // За кадр обрабатываем только одно столкновение
+            }
+        }
+    }
+
+    private boolean shouldBallBounceFromPaddle() {
+        // Условие пересечения мяча с платформой
+        return ball.getBottomPoint().getY() >= paddle.getY() &&
+               ball.getBottomPoint().getY() <= paddle.getY() + paddle.getHeight() &&
+               ball.getBottomPoint().getX() >= paddle.getX() &&
+               ball.getBottomPoint().getX() <= paddle.getX() + paddle.getWidth();
+    }
+
+    // Метод отрисовки (Шаг 1)
+    public void draw() {
+        // Заливаем всё черным цветом перед каждым новым кадром
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, this.getWidth(), this.getHeight());
+
+        // Рисуем платформу, мяч и все уцелевшие кирпичи
+        paddle.draw(gc);
+        ball.draw(gc);
+        for (Brick brick : bricks) {
+            brick.draw(gc);
+        }
+    }
+}
+
+🚀 Точка Старта: Запуск приложения
+6. Файл GameApp.java
+
+Это запускаемый класс JavaFX, который создает окно операционной системы и помещает туда наш игровой холст GameCanvas.
+Java
+
+package breakout;
+
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
+
+public class GameApp extends Application {
+    @Override
+    public void start(Stage primaryStage) {
+        // Создаем наш холст размером 800 на 600 пикселей (Шаг 1)
+        GameCanvas canvas = new GameCanvas(800, 600);
+
+        // Помещаем его в корневой контейнер без всяких FXML
+        StackPane root = new StackPane(canvas);
+        Scene scene = new Scene(root);
+
+        primaryStage.setTitle("JavaFX Breakout Game");
+        primaryStage.setScene(scene);
+        primaryStage.setResizable(false); // Запрещаем менять размер окна, чтобы не усложнять тест
+        primaryStage.show();
+    }
+
+    public static void main(String[] args) {
+        launch(args); // Метод JavaFX, запускающий приложение внутри start()
+    }
+}
+
+🧠 Как теперь учиться по этому коду:
+
+    Создай эти 6 файлов в одном пакете в IntelliJ IDEA.
+
+    Запусти класс GameApp.java.
+
+    Поводи мышкой: посмотри, как в GameCanvas метод moveWithMouse переводит экранные пиксели в диапазон от 0 до 1, и как платформа двигается за указателем.
+
+    Кликни левой кнопкой мыши: включится флаг gameRunning, и AnimationTimer начнет гонять координаты мяча через updatePosition(deltaTime).
+
+Код перед тобой, попробуй перенести его в среду разработки. Если какая-то функция или математический расчет вызовет вопрос — пиши, сразу разберем!
+
+

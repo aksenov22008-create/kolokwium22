@@ -11,6 +11,7 @@
         <module name="shop (1)" />
         <module name="paddle (1)" />
         <module name="chat" />
+        <module name="kol2-pow" />
         <module name="imgproc" />
       </profile>
     </annotationProcessing>
