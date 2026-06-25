@@ -8,11 +8,12 @@
         <outputRelativeToContentRoot value="true" />
         <module name="shop (1)" />
         <module name="site" />
-        <module name="shop" />
+        <module name="imgproc" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="auth" target="24" />
+      <module name="shop" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>
