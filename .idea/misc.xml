@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/shop/pom.xml" />
         <option value="$PROJECT_DIR$/imgproc/pom.xml" />
         <option value="$PROJECT_DIR$/chat/pom.xml" />
+        <option value="$PROJECT_DIR$/chat_client/pom.xml" />
       </list>
     </option>
   </component>

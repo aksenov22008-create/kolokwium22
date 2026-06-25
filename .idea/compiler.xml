@@ -7,6 +7,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="site" />
+        <module name="chat_client" />
         <module name="shop (1)" />
         <module name="chat" />
         <module name="imgproc" />
