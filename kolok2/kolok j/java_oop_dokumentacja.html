@@ -1,0 +1,572 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);font-size:13px;background:transparent;color:var(--color-text-primary)}
+.wrap{display:grid;grid-template-columns:200px 1fr;gap:0;min-height:600px}
+.nav{border-right:0.5px solid var(--color-border-tertiary);padding:12px 0;position:sticky;top:0;max-height:680px;overflow-y:auto}
+.nav-title{font-size:11px;font-weight:500;color:var(--color-text-tertiary);padding:4px 16px 8px;letter-spacing:.08em;text-transform:uppercase}
+.nav a{display:block;padding:5px 16px;font-size:12px;color:var(--color-text-secondary);text-decoration:none;border-left:2px solid transparent;transition:all .15s}
+.nav a:hover,.nav a.active{color:var(--color-text-primary);border-left-color:var(--color-border-primary);background:var(--color-background-secondary)}
+.content{padding:0 24px 40px;overflow-x:hidden}
+.section{padding:20px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.section:last-child{border-bottom:none}
+h2{font-size:16px;font-weight:500;margin-bottom:4px;color:var(--color-text-primary);display:flex;align-items:center;gap:8px}
+.badge{font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:var(--color-background-info);color:var(--color-text-info);font-family:var(--font-sans)}
+.badge.warn{background:var(--color-background-warning);color:var(--color-text-warning)}
+.badge.ok{background:var(--color-background-success);color:var(--color-text-success)}
+.sub{font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;font-family:var(--font-sans)}
+pre{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px 14px;overflow-x:auto;margin:10px 0;line-height:1.55}
+code{font-family:var(--font-mono);font-size:12px}
+.kw{color:#c678dd}
+.cm{color:#7c8390;font-style:italic}
+.str{color:#98c379}
+.num{color:#d19a66}
+.cl{color:#e5c07b}
+.fn{color:#61afef}
+.tip{background:var(--color-background-warning);border:0.5px solid var(--color-border-warning);border-radius:var(--border-radius-md);padding:8px 12px;font-size:12px;color:var(--color-text-warning);margin:10px 0;font-family:var(--font-sans)}
+.tip b{font-weight:500}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px}
+.card h4{font-size:12px;font-weight:500;margin-bottom:6px;color:var(--color-text-primary);font-family:var(--font-sans)}
+.card p{font-size:11px;color:var(--color-text-secondary);line-height:1.5;font-family:var(--font-sans)}
+table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+th{text-align:left;padding:6px 10px;background:var(--color-background-secondary);font-weight:500;border:0.5px solid var(--color-border-tertiary);font-family:var(--font-sans)}
+td{padding:6px 10px;border:0.5px solid var(--color-border-tertiary);font-family:var(--font-sans);color:var(--color-text-secondary)}
+td code{font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary)}
+</style>
+
+<h2 class="sr-only">Dokumentacja Java OOP - kompletny przewodnik do kolokwium</h2>
+
+<div class="wrap">
+<nav class="nav">
+  <div class="nav-title">Tematy</div>
+  <a href="#klasy" class="active">Klasy i obiekty</a>
+  <a href="#enkaps">Enkapsulacja</a>
+  <a href="#dziedziczenie">Dziedziczenie</a>
+  <a href="#abstrakcja">Abstrakcja</a>
+  <a href="#interfejs">Interface</a>
+  <a href="#kontenery">Kontenery</a>
+  <a href="#wyjatki">Wyjątki</a>
+  <a href="#pliki">Pliki</a>
+  <a href="#funkcyjne">Programowanie funkcyjne</a>
+  <a href="#generyki">Generyki</a>
+  <a href="#enum">Enum + Record</a>
+  <a href="#svg">SVG (kolokwium)</a>
+  <a href="#wzorce">Wzorce z kolokwiów</a>
+</nav>
+
+<div class="content">
+
+<div class="section" id="klasy">
+<h2>Klasy i obiekty <span class="badge">podstawy</span></h2>
+<div class="sub">Klasa = szablon. Obiekt = konkretna instancja klasy.</div>
+<pre><code><span class="kw">public class</span> <span class="cl">Samochod</span> {
+    <span class="cm">// pola (stan obiektu)</span>
+    <span class="kw">private</span> <span class="cl">String</span> marka;
+    <span class="kw">private int</span> rok;
+
+    <span class="cm">// konstruktor - wywoływany przy new Samochod(...)</span>
+    <span class="kw">public</span> <span class="fn">Samochod</span>(<span class="cl">String</span> marka, <span class="kw">int</span> rok) {
+        <span class="kw">this</span>.marka = marka;
+        <span class="kw">this</span>.rok = rok;
+    }
+
+    <span class="cm">// metoda (zachowanie obiektu)</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getInfo</span>() {
+        <span class="kw">return</span> marka + <span class="str">" ("</span> + rok + <span class="str">")"</span>;
+    }
+}
+
+<span class="cm">// użycie:</span>
+<span class="cl">Samochod</span> s = <span class="kw">new</span> <span class="fn">Samochod</span>(<span class="str">"Toyota"</span>, <span class="num">2020</span>);
+s.<span class="fn">getInfo</span>(); <span class="cm">// "Toyota (2020)"</span></code></pre>
+<div class="tip"><b>Na kolokwium:</b> every public class must be in its own .java file with the same name.</div>
+</div>
+
+<div class="section" id="enkaps">
+<h2>Enkapsulacja i konstruktory <span class="badge">podstawy</span></h2>
+<div class="sub">Ukrywaj pola (private), udostępniaj przez metody (gettery/settery).</div>
+<pre><code><span class="kw">public class</span> <span class="cl">Osoba</span> {
+    <span class="kw">private final</span> <span class="cl">String</span> imie;   <span class="cm">// final = ustawiane raz</span>
+    <span class="kw">private int</span> wiek;
+
+    <span class="cm">// konstruktor z walidacją</span>
+    <span class="kw">public</span> <span class="fn">Osoba</span>(<span class="cl">String</span> imie, <span class="kw">int</span> wiek) {
+        <span class="kw">if</span> (wiek &lt; <span class="num">0</span>) <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="str">"Wiek < 0"</span>);
+        <span class="kw">this</span>.imie = imie;
+        <span class="kw">this</span>.wiek = wiek;
+    }
+
+    <span class="cm">// getter - tylko odczyt</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getImie</span>() { <span class="kw">return</span> imie; }
+
+    <span class="cm">// setter - z możliwością walidacji</span>
+    <span class="kw">public void</span> <span class="fn">setWiek</span>(<span class="kw">int</span> wiek) {
+        <span class="kw">if</span> (wiek &lt; <span class="num">0</span>) <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="str">"Wiek < 0"</span>);
+        <span class="kw">this</span>.wiek = wiek;
+    }
+
+    <span class="cm">// toString - wywołuje się przy System.out.println(obj)</span>
+    <span class="kw">@Override public</span> <span class="cl">String</span> <span class="fn">toString</span>() {
+        <span class="kw">return</span> imie + <span class="str">", wiek: "</span> + wiek;
+    }
+}</code></pre>
+</div>
+
+<div class="section" id="dziedziczenie">
+<h2>Dziedziczenie <span class="badge">kluczowe</span></h2>
+<div class="sub">Podklasa dziedziczy pola i metody. Używa super() i @Override.</div>
+<pre><code><span class="kw">public class</span> <span class="cl">Pojazd</span> {
+    <span class="kw">private</span> <span class="cl">String</span> marka;
+
+    <span class="kw">public</span> <span class="fn">Pojazd</span>(<span class="cl">String</span> marka) { <span class="kw">this</span>.marka = marka; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getMarka</span>() { <span class="kw">return</span> marka; }
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">opis</span>() { <span class="kw">return</span> <span class="str">"Pojazd: "</span> + marka; }
+}
+
+<span class="kw">public class</span> <span class="cl">Samochod</span> <span class="kw">extends</span> <span class="cl">Pojazd</span> {
+    <span class="kw">private int</span> drzwi;
+
+    <span class="kw">public</span> <span class="fn">Samochod</span>(<span class="cl">String</span> marka, <span class="kw">int</span> drzwi) {
+        <span class="kw">super</span>(marka);   <span class="cm">// PIERWSZE! wywołuje Pojazd(marka)</span>
+        <span class="kw">this</span>.drzwi = drzwi;
+    }
+
+    <span class="kw">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">opis</span>() {
+        <span class="kw">return super</span>.<span class="fn">opis</span>() + <span class="str">", drzwi: "</span> + drzwi; <span class="cm">// wywołuje wersję Pojazd</span>
+    }
+}
+
+<span class="cm">// POLIMORFIZM: zmienna Pojazd trzyma Samochod</span>
+<span class="cl">Pojazd</span> p = <span class="kw">new</span> <span class="fn">Samochod</span>(<span class="str">"BMW"</span>, <span class="num">4</span>);
+p.<span class="fn">opis</span>(); <span class="cm">// wywołuje Samochod.opis() !</span>
+
+<span class="cm">// instanceof + pattern matching (Java 16+)</span>
+<span class="kw">if</span> (p <span class="kw">instanceof</span> <span class="cl">Samochod</span> s) {
+    s.drzwi; <span class="cm">// już rzutowany, bez (Samochod) p</span>
+}</code></pre>
+<div class="tip"><b>Zasada:</b> super() musi być pierwszą linią konstruktora podklasy.</div>
+</div>
+
+<div class="section" id="abstrakcja">
+<h2>Klasa abstrakcyjna <span class="badge">na każdym kolokwium</span></h2>
+<div class="sub">Nie można jej instancjonować. Definiuje metody bez implementacji.</div>
+<pre><code><span class="kw">public abstract class</span> <span class="cl">Ksztalt</span> {
+    <span class="kw">private</span> <span class="cl">String</span> kolor;
+
+    <span class="kw">public</span> <span class="fn">Ksztalt</span>(<span class="cl">String</span> kolor) { <span class="kw">this</span>.kolor = kolor; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getKolor</span>() { <span class="kw">return</span> kolor; }
+
+    <span class="cm">// abstrakcyjna = brak ciała, MUSI być nadpisana w podklasie</span>
+    <span class="kw">public abstract double</span> <span class="fn">pole</span>();
+    <span class="kw">public abstract</span> <span class="cl">String</span> <span class="fn">toSvg</span>();
+
+    <span class="cm">// zwykła metoda - podklasy dziedziczą gotową implementację</span>
+    <span class="kw">public void</span> <span class="fn">wypisz</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="str">"Pole: "</span> + <span class="fn">pole</span>()); <span class="cm">// wywoła właściwą wersję</span>
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Okrag</span> <span class="kw">extends</span> <span class="cl">Ksztalt</span> {
+    <span class="kw">private double</span> r;
+
+    <span class="kw">public</span> <span class="fn">Okrag</span>(<span class="cl">String</span> kolor, <span class="kw">double</span> r) {
+        <span class="kw">super</span>(kolor);
+        <span class="kw">this</span>.r = r;
+    }
+
+    <span class="kw">@Override public double</span> <span class="fn">pole</span>() { <span class="kw">return</span> <span class="cl">Math</span>.PI * r * r; }
+    <span class="kw">@Override public</span> <span class="cl">String</span> <span class="fn">toSvg</span>() {
+        <span class="kw">return</span> <span class="str">"&lt;circle r='"</span> + r + <span class="str">"'/&gt;"</span>;
+    }
+}
+
+<span class="cm">// new Ksztalt() → BŁĄD kompilacji</span>
+<span class="cl">Ksztalt</span> k = <span class="kw">new</span> <span class="fn">Okrag</span>(<span class="str">"red"</span>, <span class="num">5</span>);  <span class="cm">// OK - podklasa konkretna</span></code></pre>
+</div>
+
+<div class="section" id="interfejs">
+<h2>Interface <span class="badge">ważne</span></h2>
+<div class="sub">Kontrakt - definiuje co klasa musi umieć. Można implementować wiele naraz.</div>
+<pre><code><span class="cm">// Definicja</span>
+<span class="kw">interface</span> <span class="cl">Rysowany</span> {
+    <span class="cl">String</span> <span class="fn">toSvg</span>();               <span class="cm">// abstrakcyjna - MUSI być zaimplementowana</span>
+
+    <span class="kw">default void</span> <span class="fn">zapisz</span>(<span class="cl">Path</span> p) <span class="kw">throws</span> <span class="cl">IOException</span> {  <span class="cm">// default - MOŻE być nadpisana</span>
+        <span class="cl">Files</span>.<span class="fn">writeString</span>(p, <span class="fn">toSvg</span>());
+    }
+}
+
+<span class="kw">interface</span> <span class="cl">Mierzalny</span> {
+    <span class="kw">double</span> <span class="fn">getPole</span>();
+}
+
+<span class="cm">// implements wiele naraz (extends tylko jeden!)</span>
+<span class="kw">class</span> <span class="cl">Prostokat</span> <span class="kw">extends</span> <span class="cl">Ksztalt</span> <span class="kw">implements</span> <span class="cl">Rysowany</span>, <span class="cl">Mierzalny</span> {
+    <span class="kw">@Override public</span> <span class="cl">String</span> <span class="fn">toSvg</span>() { <span class="kw">return</span> <span class="str">"&lt;rect/&gt;"</span>; }
+    <span class="kw">@Override public double</span> <span class="fn">getPole</span>() { <span class="kw">return</span> <span class="num">0</span>; }
+    <span class="kw">@Override public double</span> <span class="fn">pole</span>() { <span class="kw">return</span> <span class="num">0</span>; }
+}
+
+<span class="cm">// interfejs jako typ zmiennej</span>
+<span class="cl">Rysowany</span> r = <span class="kw">new</span> <span class="fn">Prostokat</span>(...);
+<span class="cl">List</span>&lt;<span class="cl">Rysowany</span>&gt; lista = <span class="cl">List</span>.<span class="fn">of</span>(r1, r2, r3); <span class="cm">// lista polimorficzna</span>
+
+<span class="cm">// @FunctionalInterface - dla lambd (jeden interfejs = jedna metoda)</span>
+<span class="kw">@FunctionalInterface interface</span> <span class="cl">Parsuj</span>&lt;<span class="cl">T</span>&gt; {
+    <span class="cl">T</span> <span class="fn">parsuj</span>(<span class="cl">Path</span> p);
+}
+<span class="cl">Parsuj</span>&lt;<span class="cl">Produkt</span>&gt; parser = <span class="cl">Produkt</span>::<span class="fn">fromCsv</span>; <span class="cm">// method reference!</span></code></pre>
+
+<table>
+<tr><th>Cecha</th><th>abstract class</th><th>interface</th></tr>
+<tr><td>Słowo kluczowe</td><td><code>extends</code></td><td><code>implements</code></td></tr>
+<tr><td>Ile naraz</td><td>tylko jedna</td><td>wiele jednocześnie</td></tr>
+<tr><td>Pola</td><td>dowolne</td><td>tylko stałe (static final)</td></tr>
+<tr><td>Konstruktor</td><td>tak</td><td>nie</td></tr>
+<tr><td>Metody z ciałem</td><td>tak</td><td>tylko default/static</td></tr>
+</table>
+</div>
+
+<div class="section" id="kontenery">
+<h2>Kontenery <span class="badge">kluczowe</span></h2>
+<div class="sub">List, Map, Set - podstawowe struktury danych w każdym kolokwium.</div>
+<pre><code><span class="cm">// LIST - z duplikatami, zachowuje kolejność</span>
+<span class="cl">List</span>&lt;<span class="cl">String</span>&gt; lista = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+lista.<span class="fn">add</span>(<span class="str">"a"</span>);
+lista.<span class="fn">get</span>(<span class="num">0</span>);           <span class="cm">// odczyt</span>
+lista.<span class="fn">size</span>();           <span class="cm">// rozmiar</span>
+lista.<span class="fn">remove</span>(<span class="num">0</span>);       <span class="cm">// usuń po indeksie</span>
+lista.<span class="fn">contains</span>(<span class="str">"a"</span>);   <span class="cm">// czy zawiera</span>
+<span class="cl">Collections</span>.<span class="fn">unmodifiableList</span>(lista); <span class="cm">// niemodyfikowalna kopia</span>
+
+<span class="cm">// MAP - klucz → wartość, klucze unikalne</span>
+<span class="cl">Map</span>&lt;<span class="cl">String</span>, <span class="cl">Integer</span>&gt; mapa = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+mapa.<span class="fn">put</span>(<span class="str">"A"</span>, <span class="num">5000</span>);
+mapa.<span class="fn">get</span>(<span class="str">"A"</span>);                     <span class="cm">// → 5000</span>
+mapa.<span class="fn">getOrDefault</span>(<span class="str">"X"</span>, <span class="num">0</span>);        <span class="cm">// bezpieczny odczyt</span>
+mapa.<span class="fn">merge</span>(<span class="str">"A"</span>, <span class="num">100</span>, <span class="cl">Integer</span>::<span class="fn">sum</span>); <span class="cm">// A: 5000+100=5100</span>
+mapa.<span class="fn">containsKey</span>(<span class="str">"A"</span>);             <span class="cm">// true</span>
+<span class="cm">// iteracja:</span>
+<span class="kw">for</span> (<span class="cl">Map</span>.<span class="cl">Entry</span>&lt;<span class="cl">String</span>,<span class="cl">Integer</span>&gt; e : mapa.<span class="fn">entrySet</span>())
+    e.<span class="fn">getKey</span>() + <span class="str">": "</span> + e.<span class="fn">getValue</span>();
+
+<span class="cm">// SET - bez duplikatów</span>
+<span class="cl">Set</span>&lt;<span class="cl">String</span>&gt; zbior = <span class="kw">new</span> <span class="cl">HashSet</span>&lt;&gt;();
+zbior.<span class="fn">add</span>(<span class="str">"a"</span>); zbior.<span class="fn">add</span>(<span class="str">"a"</span>); <span class="cm">// rozmiar = 1</span>
+<span class="cl">LinkedHashSet</span> <span class="cm">// zachowuje kolejność wstawiania</span>
+<span class="cl">TreeSet</span>       <span class="cm">// posortowany (wymaga Comparable)</span>
+
+<span class="cm">// SORTOWANIE</span>
+lista.<span class="fn">sort</span>(<span class="cl">Comparator</span>.<span class="fn">naturalOrder</span>());
+lista.<span class="fn">sort</span>(<span class="cl">Comparator</span>.<span class="fn">reverseOrder</span>());
+lista.<span class="fn">sort</span>(<span class="cl">Comparator</span>.<span class="fn">comparingInt</span>(<span class="cl">String</span>::<span class="fn">length</span>).<span class="fn">reversed</span>());
+lista.<span class="fn">sort</span>(<span class="cl">Comparator</span>.<span class="fn">comparingInt</span>(<span class="cl">String</span>::<span class="fn">length</span>)
+    .<span class="fn">thenComparing</span>(<span class="cl">Comparator</span>.<span class="fn">naturalOrder</span>())); <span class="cm">// remis: alfabetycznie</span></code></pre>
+</div>
+
+<div class="section" id="wyjatki">
+<h2>Wyjątki <span class="badge">kluczowe</span></h2>
+<div class="sub">Checked (kompilator wymaga obsługi) vs Unchecked (brak wymogu).</div>
+<pre><code><span class="cm">// CHECKED - extends Exception</span>
+<span class="kw">class</span> <span class="cl">BrakException</span> <span class="kw">extends</span> <span class="cl">Exception</span> {
+    <span class="kw">private final</span> <span class="cl">String</span> nazwa;
+    <span class="kw">public</span> <span class="fn">BrakException</span>(<span class="cl">String</span> nazwa) {
+        <span class="kw">super</span>(nazwa);         <span class="cm">// getMessage() zwróci 'nazwa'</span>
+        <span class="kw">this</span>.nazwa = nazwa;
+    }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getNazwa</span>() { <span class="kw">return</span> nazwa; }
+}
+
+<span class="cm">// UNCHECKED - extends RuntimeException (nie wymaga throws)</span>
+<span class="kw">class</span> <span class="cl">BrakZwyciezcyException</span> <span class="kw">extends</span> <span class="cl">RuntimeException</span> {
+    <span class="kw">public</span> <span class="fn">BrakZwyciezcyException</span>() { <span class="kw">super</span>(<span class="str">"Brak zwycięzcy"</span>); }
+}
+
+<span class="cm">// PROPAGACJA przez throws (checked musi być zadeklarowany)</span>
+<span class="kw">void</span> <span class="fn">metoda</span>() <span class="kw">throws</span> <span class="cl">BrakException</span> {
+    <span class="kw">throw new</span> <span class="fn">BrakException</span>(<span class="str">"coś"</span>); <span class="cm">// rzucamy</span>
+}
+
+<span class="cm">// PRZECHWYCENIE</span>
+<span class="kw">try</span> {
+    <span class="fn">metoda</span>();
+} <span class="kw">catch</span> (<span class="cl">BrakException</span> e) {
+    e.<span class="fn">getMessage</span>(); <span class="cm">// "coś"</span>
+} <span class="kw">catch</span> (<span class="cl">IOException</span> | <span class="cl">NullPointerException</span> e) { <span class="cm">// multicatch</span>
+    e.<span class="fn">getClass</span>().<span class="fn">getSimpleName</span>();
+} <span class="kw">finally</span> {
+    <span class="cm">// zawsze się wykonuje (sprzątanie)</span>
+}</code></pre>
+<div class="tip"><b>Na kolokwium:</b> getMessage() musi zwracać szukaną nazwę/wartość - bo task często sprawdza assertThrows + e.getMessage().</div>
+</div>
+
+<div class="section" id="pliki">
+<h2>Pliki i I/O <span class="badge">na każdym kolokwium</span></h2>
+<div class="sub">Wzorzec fromCsv() + try-with-resources pojawia się w każdym zadaniu.</div>
+<pre><code><span class="cm">// Całość naraz - małe pliki (najczęściej na kolokwium)</span>
+<span class="cl">List</span>&lt;<span class="cl">String</span>&gt; linie = <span class="cl">Files</span>.<span class="fn">readAllLines</span>(<span class="cl">Path</span>.<span class="fn">of</span>(<span class="str">"plik.csv"</span>));
+<span class="cl">String</span> naglowek = linie.<span class="fn">get</span>(<span class="num">0</span>);        <span class="cm">// linia 0 = nagłówek/nazwa</span>
+<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt; linie.<span class="fn">size</span>(); i++) {
+    <span class="cl">String</span>[] col = linie.<span class="fn">get</span>(i).<span class="fn">split</span>(<span class="str">";"</span>);
+}
+
+<span class="cm">// try-with-resources - OBOWIĄZKOWY przy BufferedReader/Writer</span>
+<span class="kw">try</span> (<span class="cl">BufferedReader</span> br = <span class="cl">Files</span>.<span class="fn">newBufferedReader</span>(<span class="cl">Path</span>.<span class="fn">of</span>(<span class="str">"plik.csv"</span>))) {
+    <span class="cl">String</span> linia;
+    <span class="kw">while</span> ((linia = br.<span class="fn">readLine</span>()) != <span class="kw">null</span>) {
+        <span class="kw">if</span> (linia.<span class="fn">isBlank</span>()) <span class="kw">continue</span>; <span class="cm">// pomiń puste</span>
+        <span class="cl">String</span>[] col = linia.<span class="fn">split</span>(<span class="str">";"</span>);
+    }
+} <span class="cm">// br zamknięty automatycznie</span>
+
+<span class="cm">// Zapis do pliku</span>
+<span class="cl">Files</span>.<span class="fn">writeString</span>(sciezka, zawartoscSVG);
+<span class="kw">try</span> (<span class="cl">BufferedWriter</span> bw = <span class="cl">Files</span>.<span class="fn">newBufferedWriter</span>(sciezka)) {
+    bw.<span class="fn">write</span>(<span class="str">"linia"</span>); bw.<span class="fn">newLine</span>();
+}
+
+<span class="cm">// Operacje na katalogach</span>
+<span class="cl">Files</span>.<span class="fn">createDirectories</span>(katalog);     <span class="cm">// tworzy katalog (i nadrzędne)</span>
+<span class="cl">Files</span>.<span class="fn">list</span>(katalog)                    <span class="cm">// stream plików w katalogu</span>
+     .<span class="fn">filter</span>(p -&gt; p.<span class="fn">toString</span>().<span class="fn">endsWith</span>(<span class="str">".csv"</span>))
+     .<span class="fn">forEach</span>(sciezka -&gt; ...);
+
+<span class="cm">// Sprawdzanie pliku</span>
+<span class="kw">if</span> (!plik.<span class="fn">exists</span>() || !plik.<span class="fn">canRead</span>())
+    <span class="kw">throw new</span> <span class="cl">FileNotFoundException</span>(sciezka.<span class="fn">toString</span>());</code></pre>
+</div>
+
+<div class="section" id="funkcyjne">
+<h2>Programowanie funkcyjne <span class="badge">kluczowe</span></h2>
+<div class="sub">Lambdy, Stream API, method references - do filtrowania i przetwarzania danych.</div>
+<pre><code><span class="cl">List</span>&lt;<span class="cl">String</span>&gt; lista = <span class="cl">List</span>.<span class="fn">of</span>(<span class="str">"Lublin"</span>, <span class="str">"Warszawa"</span>, <span class="str">"Kraków"</span>);
+
+<span class="cm">// filter → map → sorted → collect - typowy potok</span>
+<span class="cl">List</span>&lt;<span class="cl">String</span>&gt; wynik = lista.<span class="fn">stream</span>()
+    .<span class="fn">filter</span>(s -&gt; s.<span class="fn">length</span>() &gt; <span class="num">6</span>)               <span class="cm">// zostaw długie</span>
+    .<span class="fn">map</span>(<span class="cl">String</span>::<span class="fn">toUpperCase</span>)                   <span class="cm">// na wielkie</span>
+    .<span class="fn">sorted</span>()                                    <span class="cm">// alfabetycznie</span>
+    .<span class="fn">collect</span>(<span class="cl">Collectors</span>.<span class="fn">toList</span>());
+
+<span class="cm">// Agregacja</span>
+<span class="kw">int</span> suma = lista.<span class="fn">stream</span>().<span class="fn">mapToInt</span>(<span class="cl">String</span>::<span class="fn">length</span>).<span class="fn">sum</span>();
+<span class="kw">double</span> avg = lista.<span class="fn">stream</span>().<span class="fn">mapToInt</span>(<span class="cl">String</span>::<span class="fn">length</span>).<span class="fn">average</span>().<span class="fn">orElse</span>(<span class="num">0</span>);
+
+<span class="cm">// groupingBy - jak GROUP BY w SQL</span>
+<span class="cl">Map</span>&lt;<span class="cl">Integer</span>, <span class="cl">List</span>&lt;<span class="cl">String</span>&gt;&gt; pogrupowane = lista.<span class="fn">stream</span>()
+    .<span class="fn">collect</span>(<span class="cl">Collectors</span>.<span class="fn">groupingBy</span>(<span class="cl">String</span>::<span class="fn">length</span>)); <span class="cm">// klucz = długość</span>
+
+<span class="cm">// Szukanie zwycięzcy (max po wartości w mapie)</span>
+mapa.<span class="fn">entrySet</span>().<span class="fn">stream</span>()
+    .<span class="fn">max</span>(<span class="cl">Map</span>.<span class="cl">Entry</span>.<span class="fn">comparingByValue</span>())
+    .<span class="fn">map</span>(<span class="cl">Map</span>.<span class="cl">Entry</span>::<span class="fn">getKey</span>)
+    .<span class="fn">orElseThrow</span>(() -&gt; <span class="kw">new</span> <span class="fn">BrakZwyciezcyException</span>());
+
+<span class="cm">// METHOD REFERENCES</span>
+<span class="cl">String</span>::<span class="fn">length</span>    <span class="cm">// = s -> s.length()</span>
+<span class="cl">System</span>.out::<span class="fn">println</span> <span class="cm">// = s -> System.out.println(s)</span>
+<span class="cl">Integer</span>::<span class="fn">sum</span>     <span class="cm">// = (a, b) -> a + b</span>
+<span class="cl">ArrayList</span>::<span class="kw">new</span>   <span class="cm">// = () -> new ArrayList()</span>
+<span class="cl">Produkt</span>::<span class="fn">fromCsv</span> <span class="cm">// = p -> Produkt.fromCsv(p)</span>
+
+<span class="cm">// OBIEKTY FUNKCYJNE</span>
+<span class="cl">Function</span>&lt;<span class="cl">Path</span>, <span class="cl">Produkt</span>&gt; f = <span class="cl">Produkt</span>::<span class="fn">fromCsv</span>; f.<span class="fn">apply</span>(sciezka);
+<span class="cl">Predicate</span>&lt;<span class="cl">String</span>&gt; p = s -&gt; s.<span class="fn">startsWith</span>(<span class="str">"A"</span>); p.<span class="fn">test</span>(<span class="str">"Abc"</span>);
+<span class="cl">Consumer</span>&lt;<span class="cl">String</span>&gt; c = <span class="cl">System</span>.out::<span class="fn">println</span>; c.<span class="fn">accept</span>(<span class="str">"x"</span>);
+<span class="cl">Supplier</span>&lt;<span class="cl">List</span>&gt; s2 = <span class="cl">ArrayList</span>::<span class="kw">new</span>; s2.<span class="fn">get</span>();</code></pre>
+</div>
+
+<div class="section" id="generyki">
+<h2>Programowanie generyczne <span class="badge">ważne</span></h2>
+<div class="sub">Klasy i metody działające na dowolnych typach - bezpieczne typowo.</div>
+<pre><code><span class="cm">// Klasa generyczna</span>
+<span class="kw">class</span> <span class="cl">Para</span>&lt;<span class="cl">A</span>, <span class="cl">B</span>&gt; {
+    <span class="kw">private final</span> <span class="cl">A</span> pierwszy;
+    <span class="kw">private final</span> <span class="cl">B</span> drugi;
+    <span class="kw">public</span> <span class="fn">Para</span>(<span class="cl">A</span> a, <span class="cl">B</span> b) { pierwszy = a; drugi = b; }
+    <span class="kw">public</span> <span class="cl">A</span> <span class="fn">getPierwszy</span>() { <span class="kw">return</span> pierwszy; }
+}
+
+<span class="cl">Para</span>&lt;<span class="cl">String</span>, <span class="cl">Integer</span>&gt; p = <span class="kw">new</span> <span class="fn">Para</span>&lt;&gt;(<span class="str">"wynik"</span>, <span class="num">42</span>);
+
+<span class="cm">// Metoda generyczna</span>
+<span class="kw">public static</span> &lt;<span class="cl">T</span> <span class="kw">extends</span> <span class="cl">Comparable</span>&lt;<span class="cl">T</span>&gt;&gt; <span class="cl">T</span> <span class="fn">max</span>(<span class="cl">T</span> a, <span class="cl">T</span> b) {
+    <span class="kw">return</span> a.<span class="fn">compareTo</span>(b) &gt;= <span class="num">0</span> ? a : b;
+}
+<span class="fn">max</span>(<span class="str">"alpha"</span>, <span class="str">"beta"</span>); <span class="cm">// "beta"</span>
+<span class="fn">max</span>(<span class="num">10</span>, <span class="num">20</span>);          <span class="cm">// 20</span>
+
+<span class="cm">// Wildcard - przyjmuje listę dowolnego podtypu Number</span>
+<span class="kw">double</span> <span class="fn">sum</span>(<span class="cl">List</span>&lt;? <span class="kw">extends</span> <span class="cl">Number</span>&gt; lista) {
+    <span class="kw">return</span> lista.<span class="fn">stream</span>().<span class="fn">mapToDouble</span>(<span class="cl">Number</span>::<span class="fn">doubleValue</span>).<span class="fn">sum</span>();
+}
+<span class="cm">// akceptuje: List&lt;Integer&gt;, List&lt;Double&gt;, List&lt;Float&gt;</span></code></pre>
+</div>
+
+<div class="section" id="enum">
+<h2>Enum + Record <span class="badge">nowe</span></h2>
+<div class="sub">Enum = skończony zbiór wartości. Record = niezmienialny nośnik danych.</div>
+<pre><code><span class="cm">// ENUM z metodami (kolokwium 2024: Mode { HOUR_12, HOUR_24 })</span>
+<span class="kw">public enum</span> <span class="cl">Tryb</span> {
+    DWUDZIESTOCZTERY, DWUNASCIE;
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getOpis</span>() {  <span class="cm">// enum może mieć metody</span>
+        <span class="kw">return switch</span> (<span class="kw">this</span>) {
+            <span class="kw">case</span> DWUDZIESTOCZTERY -&gt; <span class="str">"24h"</span>;
+            <span class="kw">case</span> DWUNASCIE -&gt; <span class="str">"12h"</span>;
+        };
+    }
+}
+
+<span class="cl">Tryb</span> t = <span class="cl">Tryb</span>.DWUDZIESTOCZTERY;
+<span class="cl">Tryb</span>.<span class="fn">values</span>();  <span class="cm">// [DWUDZIESTOCZTERY, DWUNASCIE]</span>
+<span class="cl">Tryb</span>.<span class="fn">valueOf</span>(<span class="str">"DWUNASCIE"</span>); <span class="cm">// Tryb.DWUNASCIE</span>
+
+<span class="cm">// RECORD (Java 16+) - automatycznie: konstruktor, gettery, equals, toString</span>
+<span class="cm">// (kolokwium 2025: record Candidate(String name){})</span>
+<span class="kw">record</span> <span class="cl">Kandydat</span>(<span class="cl">String</span> nazwa, <span class="kw">int</span> numer) {
+    <span class="cm">// gettery: kandydat.nazwa(), kandydat.numer()</span>
+    <span class="cm">// opcjonalnie: własna logika</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">nazwisko</span>() { <span class="kw">return</span> nazwa.<span class="fn">split</span>(<span class="str">" "</span>)[<span class="num">1</span>]; }
+}
+
+<span class="cl">Kandydat</span> k = <span class="kw">new</span> <span class="fn">Kandydat</span>(<span class="str">"Jan Kowalski"</span>, <span class="num">1</span>);
+k.<span class="fn">nazwa</span>();   <span class="cm">// "Jan Kowalski"</span>
+k.<span class="fn">numer</span>();   <span class="cm">// 1</span>
+
+<span class="cm">// record jako klucz w Map (equals i hashCode są automatyczne)</span>
+<span class="cl">Map</span>&lt;<span class="cl">Kandydat</span>, <span class="cl">Integer</span>&gt; glosy = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+glosy.<span class="fn">put</span>(k, <span class="num">5000</span>);</code></pre>
+</div>
+
+<div class="section" id="svg">
+<h2>Generowanie SVG <span class="badge warn">kolokwium 2024 + 2025</span></h2>
+<div class="sub">SVG = plik tekstowy XML. Generujemy przez składanie Stringów → zapis Files.writeString().</div>
+<pre><code><span class="cm">// Każdy plik SVG: nagłówek + elementy + stopka</span>
+<span class="cl">StringBuilder</span> svg = <span class="kw">new</span> <span class="cl">StringBuilder</span>();
+svg.<span class="fn">append</span>(<span class="str">"&lt;svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'&gt;\n"</span>);
+
+<span class="cm">// OKRĄG - tarcza zegara</span>
+svg.<span class="fn">append</span>(<span class="str">"  &lt;circle cx='100' cy='100' r='90' fill='white' stroke='black'/&gt;\n"</span>);
+
+<span class="cm">// ODCINEK z OBROTEM - wskazówka zegara</span>
+<span class="cm">// kąt 0° = wskazówka w górę (12:00), 90° = prawo (3:00)</span>
+<span class="kw">double</span> kat = <span class="num">30</span> * <span class="num">6.0</span>; <span class="cm">// 30 sekund → 180°</span>
+svg.<span class="fn">append</span>(<span class="cl">String</span>.<span class="fn">format</span>(
+    <span class="str">"  &lt;line x1='100' y1='100' x2='100' y2='20' stroke='red' stroke-width='2'"</span> +
+    <span class="str">" transform='rotate(%.1f, 100, 100)'/&gt;\n"</span>, kat));
+
+<span class="cm">// WIELOKĄT - województwo/ląd</span>
+svg.<span class="fn">append</span>(<span class="str">"  &lt;polygon points='50,50 150,50 150,150 50,150' fill='green'/&gt;\n"</span>);
+
+<span class="cm">// TEKST</span>
+svg.<span class="fn">append</span>(<span class="str">"  &lt;text x='100' y='30' text-anchor='middle'&gt;12&lt;/text&gt;\n"</span>);
+svg.<span class="fn">append</span>(<span class="str">"&lt;/svg&gt;"</span>);
+
+<span class="cm">// Zapis + tworzenie katalogu</span>
+<span class="cl">Files</span>.<span class="fn">createDirectories</span>(sciezka.<span class="fn">getParent</span>());
+<span class="cl">Files</span>.<span class="fn">writeString</span>(sciezka, svg.<span class="fn">toString</span>());
+
+<span class="cm">// KĄTY WSKAZÓWEK:</span>
+<span class="kw">double</span> katS = sekundy * <span class="num">6.0</span>;                            <span class="cm">// skokowy</span>
+<span class="kw">double</span> katM = minuty * <span class="num">6.0</span> + sekundy * <span class="num">0.1</span>;            <span class="cm">// ciągły</span>
+<span class="kw">double</span> katG = (godz%<span class="num">12</span>)*<span class="num">30.0</span> + minuty*<span class="num">0.5</span> + sek/(<span class="num">120.0</span>); <span class="cm">// ciągły</span></code></pre>
+</div>
+
+<div class="section" id="wzorce">
+<h2>Wzorce z kolokwiów <span class="badge ok">gotowe do użycia</span></h2>
+<div class="sub">Skopiuj i dostosuj — te struktury powtarzają się co roku.</div>
+<pre><code><span class="cm">// ① STATYCZNA METODA FABRYCZNA fromCsv() - pojawia się zawsze</span>
+<span class="kw">public static</span> <span class="cl">MojaKlasa</span> <span class="fn">fromCsv</span>(<span class="cl">Path</span> sciezka) {
+    <span class="kw">try</span> {
+        <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; linie = <span class="cl">Files</span>.<span class="fn">readAllLines</span>(sciezka);
+        <span class="cl">String</span> nazwa = linie.<span class="fn">get</span>(<span class="num">0</span>).<span class="fn">trim</span>();    <span class="cm">// linia 0 = nazwa</span>
+        <span class="cm">// linia 1 = nagłówek - pomijamy</span>
+        <span class="cl">String</span>[] wartosci = linie.<span class="fn">get</span>(<span class="num">2</span>).<span class="fn">split</span>(<span class="str">";"</span>);
+        <span class="kw">return new</span> <span class="fn">MojaKlasa</span>(nazwa, wartosci);
+    } <span class="kw">catch</span> (<span class="cl">IOException</span> e) {
+        <span class="kw">throw new</span> <span class="cl">RuntimeException</span>(e); <span class="cm">// checked → unchecked</span>
+    }
+}
+
+<span class="cm">// ② WYSZUKIWANIE PO PREFIKSIE + własny wyjątek (kolokwium 2023)</span>
+<span class="kw">public static</span> <span class="cl">Produkt</span> <span class="fn">getProdukt</span>(<span class="cl">String</span> prefiks)
+        <span class="kw">throws</span> <span class="cl">NiejednoznacznyWyjatek</span>, <span class="cl">IndexOutOfBoundsException</span> {
+    <span class="cl">List</span>&lt;<span class="cl">Produkt</span>&gt; pasujace = lista.<span class="fn">stream</span>()
+            .<span class="fn">filter</span>(p -&gt; p.<span class="fn">getNazwa</span>().<span class="fn">startsWith</span>(prefiks))
+            .<span class="fn">collect</span>(<span class="cl">Collectors</span>.<span class="fn">toList</span>());
+    <span class="kw">if</span> (pasujace.<span class="fn">isEmpty</span>()) <span class="kw">throw new</span> <span class="cl">IndexOutOfBoundsException</span>(prefiks);
+    <span class="kw">if</span> (pasujace.<span class="fn">size</span>() &gt; <span class="num">1</span>) {
+        <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; nazwy = pasujace.<span class="fn">stream</span>().<span class="fn">map</span>(<span class="cl">Produkt</span>::<span class="fn">getNazwa</span>)
+                                      .<span class="fn">collect</span>(<span class="cl">Collectors</span>.<span class="fn">toList</span>());
+        <span class="kw">throw new</span> <span class="fn">NiejednoznacznyWyjatek</span>(nazwy);
+    }
+    <span class="kw">return</span> pasujace.<span class="fn">get</span>(<span class="num">0</span>);
+}
+
+<span class="cm">// ③ ZWYCIĘZCA - >50% lub wyjątek (kolokwium 2025)</span>
+<span class="kw">public</span> <span class="cl">Kandydat</span> <span class="fn">winner</span>() {
+    <span class="kw">int</span> suma = votes.<span class="fn">values</span>().<span class="fn">stream</span>().<span class="fn">mapToInt</span>(<span class="cl">Integer</span>::<span class="fn">intValue</span>).<span class="fn">sum</span>();
+    <span class="kw">return</span> votes.<span class="fn">entrySet</span>().<span class="fn">stream</span>()
+        .<span class="fn">filter</span>(e -&gt; e.<span class="fn">getValue</span>() * <span class="num">100.0</span> / suma &gt; <span class="num">50</span>)
+        .<span class="fn">map</span>(<span class="cl">Map</span>.<span class="cl">Entry</span>::<span class="fn">getKey</span>)
+        .<span class="fn">findFirst</span>()
+        .<span class="fn">orElseThrow</span>(<span class="fn">BrakZwyciezcyException</span>::<span class="kw">new</span>);
+}
+
+<span class="cm">// ④ addProducts z Function&lt;Path,T&gt; (kolokwium 2023)</span>
+<span class="kw">public static void</span> <span class="fn">addProducts</span>(<span class="cl">Function</span>&lt;<span class="cl">Path</span>, <span class="cl">Produkt</span>&gt; konstruktor, <span class="cl">Path</span> katalog)
+        <span class="kw">throws</span> <span class="cl">IOException</span> {
+    <span class="cl">Files</span>.<span class="fn">list</span>(katalog)
+         .<span class="fn">filter</span>(p -&gt; p.<span class="fn">toString</span>().<span class="fn">endsWith</span>(<span class="str">".csv"</span>))
+         .<span class="fn">map</span>(konstruktor::<span class="fn">apply</span>)
+         .<span class="fn">forEach</span>(lista::<span class="fn">add</span>);
+}
+<span class="cm">// wywołanie:</span>
+<span class="fn">addProducts</span>(<span class="cl">ProduktSpoz</span>::<span class="fn">fromCsv</span>, <span class="cl">Path</span>.<span class="fn">of</span>(<span class="str">"data/food"</span>));
+<span class="fn">addProducts</span>(<span class="cl">ProduktPrzem</span>::<span class="fn">fromCsv</span>, <span class="cl">Path</span>.<span class="fn">of</span>(<span class="str">"data/nonfood"</span>));
+
+<span class="cm">// ⑤ ONCHANGED - bez override w podklasie (kolokwium 2024 krok 11)</span>
+<span class="kw">abstract class</span> <span class="cl">Zegar</span> {
+    <span class="kw">public void</span> <span class="fn">setTime</span>(<span class="kw">int</span> h, <span class="kw">int</span> m, <span class="kw">int</span> s) {
+        <span class="cm">/* ustaw czas */</span>
+        <span class="fn">onTimeChanged</span>(<span class="cl">LocalTime</span>.<span class="fn">of</span>(h, m, s)); <span class="cm">// hook</span>
+    }
+    <span class="kw">protected void</span> <span class="fn">onTimeChanged</span>(<span class="cl">LocalTime</span> t) {} <span class="cm">// pusta domyślnie</span>
+}
+<span class="kw">class</span> <span class="cl">ZegarAnalog</span> <span class="kw">extends</span> <span class="cl">Zegar</span> {
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">Wskazowka</span>&gt; wsk = <span class="cl">List</span>.<span class="fn">of</span>(...);
+    <span class="kw">@Override protected void</span> <span class="fn">onTimeChanged</span>(<span class="cl">LocalTime</span> t) {
+        wsk.<span class="fn">forEach</span>(w -&gt; w.<span class="fn">setTime</span>(t)); <span class="cm">// setTime() rusza wskazówki automatycznie</span>
+    }
+}</code></pre>
+</div>
+
+</div>
+</div>
+
+<script>
+const links = document.querySelectorAll('.nav a');
+const sections = document.querySelectorAll('.section');
+links.forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  links.forEach(l => l.classList.remove('active'));
+  a.classList.add('active');
+  const target = document.querySelector(a.getAttribute('href'));
+  if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+}));
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      links.forEach(l => {
+        l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, {threshold: 0.3});
+sections.forEach(s => observer.observe(s));
+</script>
